@@ -1,0 +1,79 @@
+[project]
+name = "spicule"
+version = "0.1.0"
+description = "Analog circuit HDL in Python"
+readme = "README.md"
+authors = [
+    { name = "ToonBettens", email = "toon.bettens@outlook.com" }
+]
+requires-python = ">=3.14"
+keywords = ["analog", "circuit", "HDL", "SPICE", "Spectre", "CDL", "netlist", "EDA"]
+classifiers = [
+    "Private :: Do Not Upload",  # not public yet: PyPI rejects uploads carrying this classifier
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.4",
+    "ty>=0.0.74",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "spicule"
+
+[tool.ruff]
+target-version = "py314"
+src = ["src", "tests"]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes - unused imports/names, undefined names, etc.
+    "I",    # isort - import sorting/grouping
+    "UP",   # pyupgrade - modernize syntax to match target-version
+    "B",    # flake8-bugbear - common bug patterns (mutable defaults, etc.)
+    "C4",   # flake8-comprehensions - clearer/faster comprehensions
+    "SIM",  # flake8-simplify - simpler equivalent code
+    "RUF",  # ruff's own rules
+    "PTH",  # flake8-use-pathlib - prefer pathlib over os.path
+    "PT",   # flake8-pytest-style - consistent fixture/parametrize conventions
+    "TID",  # flake8-tidy-imports - ban relative imports, so the layering test sees every import as written
+    "ERA",  # eradicate - flag commented-out code
+]
+ignore = [
+    "E501",   # line-too-long - prefer to manage by hand
+    "PT018",  # forced splitting of assertions
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["spicule"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PT011"]  # forced match parameter in pytest.raises
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true  # docstrings will embed HDL examples
+
+[tool.ty.environment]
+python-version = "3.14"  # match requires-python's floor, not whatever's installed locally
+python-platform = "all"  # pure Python, no OS-specific code: don't let ty assume the current OS
+root = ["src"]
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib --strict-markers --strict-config"
