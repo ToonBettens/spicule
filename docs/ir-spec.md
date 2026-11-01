@@ -30,9 +30,18 @@ consumers (SPICE writers, data-out and analysis tools) read it.
    - expressions are trees and compare structurally (`w*2 == w * 2 == (w)*2`, `2.0*w == 2*w`).
 5. **Versioning.** JSON carries `"version": 1`. Within version 1 only additive
    changes. Readers reject unknown versions.
-6. **Two groups of rules.** Field rules (section 9) need no context. Semantic
-   rules follow references. The validator checks semantic rules only on
-   netlists that pass every field rule. Writers accept only validated netlists.
+6. **Rules.** Every rule has an id: a letter for its group and a number. Field
+   rules look at one value at a time. Semantic rules compare values and follow
+   references, and are only checked on netlists that pass every field rule.
+   Writers accept only validated netlists.
+
+   | Group | Kind | Section | About |
+   | --- | --- | --- | --- |
+   | F-1 to F-7 | field | 9 | types, identifiers, bounds, finite numbers, operators and functions, a non-empty netlist |
+   | N-1 to N-4 | semantic | 3 | unique names |
+   | D-1, D-2 | semantic | 4 | references between cells, define before use |
+   | C-1 to C-5 | semantic | 6 | connections and their canonical form |
+   | A-1 to A-6 | semantic | 7 | parameters and expressions in scope |
 
 ## 2. The model at a glance
 
@@ -237,22 +246,5 @@ New annotations are added as new optional fields of `Meta`.
 | F-4 | A `Connection` has at least one piece. |
 | F-5 | Numbers are finite. |
 | F-6 | `Binary.op` is one of `+ - * / ^`, and `Call.function` is from section 7.2 with the right number of arguments. |
+| F-7 | A `Netlist` has at least one cell. |
 
-## 10. JSON
-
-One object: `{"format": "spicule.ir", "version": 1, "cells": [...]}`. Keys are
-field names, and absent fields and empty tuples are left out. A union is an object
-with one key naming the kind (`{"subckt": ...}`, `{"external": ...}`,
-`{"slice": ...}`). Numbers are strings. Expressions are text in the grammar of
-7.2, parsed on load. Output is canonical and deterministic: canonical pieces,
-canonical numbers, field order, two-space indent. The reader rejects unknown
-formats, versions, keys and enum values, with the JSON path in the error.
-
-## 11. What a consumer can rely on
-
-In a validated netlist every reference resolves, cells come leaves first, every
-port is connected with the right width, every required parameter is set with
-the right type, expressions only use parameters in scope, and all names are
-portable identifiers. A writer still checks what only its dialect cares about:
-reserved words, case clashes and built-ins for CDL, built-ins it doesn't
-support.

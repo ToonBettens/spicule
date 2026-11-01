@@ -24,6 +24,7 @@ from spicule.ir.model import (
     Subckt,
     Value,
 )
+from spicule.ir.validate import ValidationError, Violation, check, validate
 
 __all__ = [
     "Binary",
@@ -49,5 +50,9 @@ __all__ = [
     "Signal",
     "Slice",
     "Subckt",
+    "ValidationError",
     "Value",
+    "Violation",
+    "check",
+    "validate",
 ]
