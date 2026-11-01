@@ -232,7 +232,7 @@ Numbers are exact, finite `Decimal`s. As text:
 Canonical text is engineering notation. The mantissa uses the fewest exact
 digits with 1 <= |mantissa| < 1000, and the exponent is a multiple of 3, written
 without padding. A number whose exponent is 0 is written plainly, and zero is
-`0`. Examples: `0.75`, `120`, `4.7e3`, `1e-3`, `1.5e-6`, `150e-15`, `2.4e9`.
+`0`. Examples: `120`, `4.7e3`, `750e-3`, `1e-3`, `1.5e-6`, `150e-15`, `2.4e9`.
 Equal numbers always print the same.
 
 ## 8. Metadata
@@ -254,7 +254,7 @@ New annotations are added as new optional fields of `Meta`.
 | --- | --- |
 | F-1 | Every field has its declared type: model classes, enum members, `int` (not `bool`), `str`, `Decimal`, tuples (not lists). Required fields are set. |
 | F-2 | Every identifier matches the grammar of section 3. |
-| F-3 | `Range.msb` and `Range.lsb` are `>= 0`, and `NoConnect.width >= 1`. |
+| F-3 | `Range.msb` and `Range.lsb` are `>= 0`, `NoConnect.width >= 1`, and `Number.value >= 0` (a negative number is a `Neg` of its magnitude). |
 | F-4 | A `Connection` has at least one piece. |
 | F-5 | Numbers are finite. |
 | F-6 | `Binary.op` is one of `+ - * / ^`, and `Call.function` is from section 7.2 with the right number of arguments. |

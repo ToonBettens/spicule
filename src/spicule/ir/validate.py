@@ -8,7 +8,7 @@ Two groups of rules (spec 1.6), each with one checker class behind one public fu
 | N-1 to N-4       | section 3   | `check_semantics`, `_SemanticChecker.names`  |
 | D-1, D-2         | section 4   | `check_semantics`, `_SemanticChecker.refs`   |
 | C-1 to C-5       | section 6   | `check_semantics`, `_SemanticChecker.conns`  |
-| A-1 to A-6       | section 7   | not yet (step 5)                             |
+| A-1 to A-6       | section 7   | `check_semantics`, `_SemanticChecker.params` |
 | W-1 to W-3       | section 6.4 | `lint` (warnings, on a valid netlist)        |
 
 `check` runs the field rules, and the semantic rules only when every field rule passes.
@@ -24,38 +24,32 @@ from types import NoneType, UnionType
 from typing import Any, Literal, get_args, get_origin, get_type_hints
 
 from spicule.ir.connections import OPEN, NetBit, bits, canonical_pieces, nets, signal_bits, width
+from spicule.ir.expressions import FUNCTIONS, param_refs
 from spicule.ir.model import (
     MODEL_CLASSES,
     Call,
     Cell,
     Connection,
+    Expression,
     External,
     Instance,
     Netlist,
     NoConnect,
+    Number,
     ParamDecl,
     ParamRef,
+    ParamType,
     ParamValue,
     Piece,
     Range,
     Signal,
     Slice,
     Subckt,
+    Value,
 )
 
 #: Identifiers (spec section 3).
 NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-#: Expression functions and their number of arguments (spec 7.2).
-FUNCTIONS: dict[str, int] = {
-    "abs": 1,
-    "sqrt": 1,
-    "exp": 1,
-    "ln": 1,
-    "log10": 1,
-    "min": 2,
-    "max": 2,
-}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -205,6 +199,8 @@ class _FieldChecker(_Checker):
             self.add("F-3", where, f"range index {value} is negative", cell, instance)
         elif cls is NoConnect and value < 1:
             self.add("F-3", where, f"width {value} is less than 1", cell, instance)
+        elif cls is Number and value.is_finite() and value < 0:
+            self.add("F-3", where, f"number {value} is negative (write a negation instead)", cell, instance)
         elif cls is Netlist and name == "cells" and not value:
             self.add("F-7", where, "a netlist has at least one cell", cell, instance)
         elif cls is Connection and name == "pieces" and not value:
@@ -221,8 +217,8 @@ class _FieldChecker(_Checker):
 
 
 class _SemanticChecker(_Checker):
-    """N-1 to N-4 (names), D-1, D-2 (references) and C-1 to C-5 (connections), on a netlist that passes every
-    field rule."""
+    """N-1 to N-4 (names), D-1, D-2 (references), C-1 to C-5 (connections) and A-1 to A-6 (parameters), on a
+    netlist that passes every field rule."""
 
     def __init__(self, netlist: Netlist):
         super().__init__()
@@ -234,6 +230,7 @@ class _SemanticChecker(_Checker):
         self.names()
         self.refs()
         self.conns()
+        self.params()
         return self.violations
 
     def names(self) -> None:
@@ -331,6 +328,67 @@ class _SemanticChecker(_Checker):
         if canonical != pieces:
             message = f"pieces are not canonical: write {', '.join(_fmt_piece(p) for p in canonical)}"
             self.add("C-5", where, message, cell.name, inst.name)
+
+    def params(self) -> None:
+        """A-4 and A-6 for every declaration, then A-1 to A-5 for every instance whose reference is sound."""
+        for here, cell in enumerate(self.netlist.cells):
+            earlier: set[str] = set()
+            for decl in cell.params:
+                if decl.default is not None:
+                    where = f"cell {cell.name}, parameter {decl.name}"
+                    if self.value_type(where, decl.type, decl.default, cell.name, None):
+                        scope = "number parameters declared earlier in the same cell"
+                        self.scope("A-6", where, decl.default, earlier, scope, cell.name, None)
+                if decl.type is ParamType.NUMBER:
+                    earlier.add(decl.name)
+            if isinstance(cell, Subckt):
+                own = {decl.name for decl in cell.params if decl.type is ParamType.NUMBER}
+                for inst in cell.instances:
+                    pos = self.position.get(inst.cell)
+                    if pos is not None and pos < here:
+                        self.instance_params(cell, own, inst, self.netlist.cells[pos])
+
+    def instance_params(self, cell: Subckt, own: set[str], inst: Instance, target: Cell) -> None:
+        """A-1 to A-5 for one instance. `own` are the number parameters of the containing cell."""
+        where = f"cell {cell.name}, instance {inst.name}"
+        decls = {decl.name: decl for decl in target.params}
+        given: set[str] = set()
+        for value in inst.params:
+            pwhere = f"{where}, parameter {value.name}"
+            if value.name in given:
+                self.add("A-2", pwhere, "parameter is set more than once", cell.name, inst.name)
+                continue
+            given.add(value.name)
+            decl = decls.get(value.name)
+            if decl is None:
+                self.add("A-1", pwhere, f"{target.name!r} declares no parameter {value.name!r}", cell.name, inst.name)
+            elif self.value_type(pwhere, decl.type, value.value, cell.name, inst.name):
+                scope = f"number parameters of {cell.name!r}"
+                self.scope("A-5", pwhere, value.value, own, scope, cell.name, inst.name)
+        for decl in target.params:
+            if decl.default is None and decl.name not in given:
+                message = f"parameter {decl.name!r} of {target.name!r} has no default, so it must be set"
+                self.add("A-3", where, message, cell.name, inst.name)
+
+    def value_type(self, where: str, ptype: ParamType, value: Value, cell: str, instance: str | None) -> bool:
+        """A-4: an `Expression` for a number parameter, a `str` for a string parameter."""
+        if ptype is ParamType.NUMBER and not isinstance(value, Expression):
+            self.add("A-4", where, f"a number parameter takes an expression, not the text {value!r}", cell, instance)
+            return False
+        if ptype is ParamType.STRING and not isinstance(value, str):
+            self.add("A-4", where, "a string parameter takes text, not an expression", cell, instance)
+            return False
+        return True
+
+    def scope(
+        self, rule: str, where: str, value: Value, allowed: set[str], scope: str, cell: str, instance: str | None
+    ) -> None:
+        """A-5, A-6: an expression only refers to the parameters in `allowed`."""
+        if not isinstance(value, Expression):
+            return
+        outside = [name for name in param_refs(value) if name not in allowed]
+        if outside:
+            self.add(rule, where, f"refers to {', '.join(outside)}, but may only use {scope}", cell, instance)
 
     def unique(self, rule: str, where: str, what: str, names: list[str], cell: str) -> None:
         seen: set[str] = set()

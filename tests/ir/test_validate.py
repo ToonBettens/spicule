@@ -208,7 +208,10 @@ def test_n3_instance_names_unique():
 
 
 def test_n4_parameter_names_unique():
-    twice = (ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER), ir.ParamDecl(name="wn", type=ir.ParamType.STRING))
+    twice = (
+        ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER, default=num("1")),
+        ir.ParamDecl(name="wn", type=ir.ParamType.STRING, default="x"),
+    )
     assert rules(replace_cell(VALID, "pair", params=twice)) == {"N-4"}
 
 

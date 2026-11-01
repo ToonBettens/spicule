@@ -376,6 +376,7 @@ Smaller choices that don't need a scored row:
 | 7.1 | No bool or int parameter types | Simulators take numbers and strings; a flag is 0/1 (R-15) |
 | 7.2 | Unary `+` dropped | Otherwise `+w` and `w` would be different trees |
 | 7.2 | Functions `abs sqrt exp ln log10 min max` | Only functions every dialect has with the same meaning; `log` left out because tools disagree on its base |
+| F-3 | `Number` values are never negative; negation is always `Neg` | Otherwise `-1` has two trees, `Number(-1)` and `Neg(Number(1))` (C2); the parser only produces the second |
 | 7.3 | No scale factors | Calibre reads `M` as milli, other tools as mega |
 | 7.3 | Engineering notation (exponent a multiple of 3, unpadded; plain when the exponent is 0) | Every exponent maps onto a familiar prefix (`e-6` is u, `e3` is k); exact, and equal numbers still always print the same |
 | 10 | The JSON module isn't called `json` | It would shadow the standard library in user code |

@@ -1,4 +1,13 @@
 from spicule.ir.connections import canonicalize
+from spicule.ir.expressions import (
+    ExpressionError,
+    expr,
+    format_expression,
+    format_number,
+    number,
+    parse_expression,
+    parse_number,
+)
 from spicule.ir.model import (
     Binary,
     Call,
@@ -35,6 +44,7 @@ __all__ = [
     "Element",
     "Expr",
     "Expression",
+    "ExpressionError",
     "External",
     "Instance",
     "Meta",
@@ -56,6 +66,12 @@ __all__ = [
     "Violation",
     "canonicalize",
     "check",
+    "expr",
+    "format_expression",
+    "format_number",
     "lint",
+    "number",
+    "parse_expression",
+    "parse_number",
     "validate",
 ]
