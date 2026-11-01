@@ -7,10 +7,13 @@ Two groups of rules (spec 1.6), each with one checker class behind one public fu
 | F-1 to F-7       | section 9   | `check_fields`, `_FieldChecker`              |
 | N-1 to N-4       | section 3   | `check_semantics`, `_SemanticChecker.names`  |
 | D-1, D-2         | section 4   | `check_semantics`, `_SemanticChecker.refs`   |
-| C-1 to C-5       | section 6   | not yet (step 4)                             |
+| C-1 to C-5       | section 6   | `check_semantics`, `_SemanticChecker.conns`  |
 | A-1 to A-6       | section 7   | not yet (step 5)                             |
+| W-1 to W-3       | section 6.4 | `lint` (warnings, on a valid netlist)        |
 
 `check` runs the field rules, and the semantic rules only when every field rule passes.
+
+Warnings don't make a netlist invalid.
 """
 
 import re
@@ -20,6 +23,7 @@ from functools import cache
 from types import NoneType, UnionType
 from typing import Any, Literal, get_args, get_origin, get_type_hints
 
+from spicule.ir.connections import OPEN, NetBit, bits, canonical_pieces, nets, signal_bits, width
 from spicule.ir.model import (
     MODEL_CLASSES,
     Call,
@@ -32,6 +36,7 @@ from spicule.ir.model import (
     ParamDecl,
     ParamRef,
     ParamValue,
+    Piece,
     Range,
     Signal,
     Slice,
@@ -216,7 +221,8 @@ class _FieldChecker(_Checker):
 
 
 class _SemanticChecker(_Checker):
-    """N-1 to N-4 (names) and D-1, D-2 (references), on a netlist that passes every field rule."""
+    """N-1 to N-4 (names), D-1, D-2 (references) and C-1 to C-5 (connections), on a netlist that passes every
+    field rule."""
 
     def __init__(self, netlist: Netlist):
         super().__init__()
@@ -227,6 +233,7 @@ class _SemanticChecker(_Checker):
     def run(self) -> list[Violation]:
         self.names()
         self.refs()
+        self.conns()
         return self.violations
 
     def names(self) -> None:
@@ -258,6 +265,73 @@ class _SemanticChecker(_Checker):
                     message = f"instantiates {inst.cell!r}, which comes later in the netlist (define before use)"
                     self.add("D-2", where, message, cell.name, inst.name)
 
+    def conns(self) -> None:
+        """C-1 to C-5, for every instance whose reference is sound (D-1, D-2), to avoid follow-up noise."""
+        for here, cell in enumerate(self.netlist.cells):
+            if not isinstance(cell, Subckt):
+                continue
+            cell_nets = nets(cell)
+            for inst in cell.instances:
+                pos = self.position.get(inst.cell)
+                if pos is not None and pos < here:
+                    self.instance_conns(cell, cell_nets, inst, self.netlist.cells[pos])
+
+    def instance_conns(self, cell: Subckt, cell_nets: dict[str, Signal], inst: Instance, target: Cell) -> None:
+        """C-1 for one instance, then C-2 to C-5 for each of its connections."""
+        where = f"cell {cell.name}, instance {inst.name}"
+        ports = {port.name: port for port in target.ports}
+        seen: set[str] = set()
+        for conn in inst.connections:
+            if conn.port not in ports:
+                self.add("C-1", where, f"{target.name!r} has no port {conn.port!r}", cell.name, inst.name)
+            elif conn.port in seen:
+                self.add("C-1", where, f"port {conn.port!r} is connected more than once", cell.name, inst.name)
+            else:
+                seen.add(conn.port)
+                self.pieces(f"{where}, port {conn.port}", cell, cell_nets, inst, ports[conn.port], conn.pieces)
+        for name in ports:
+            if name not in seen:
+                self.add("C-1", where, f"port {name!r} of {target.name!r} is not connected", cell.name, inst.name)
+
+    def pieces(
+        self,
+        where: str,
+        cell: Subckt,
+        cell_nets: dict[str, Signal],
+        inst: Instance,
+        port: Signal,
+        pieces: tuple[Piece, ...],
+    ) -> None:
+        """C-2 and C-3 per piece, then C-4 (total width) and C-5 (canonical form) if every piece is sound."""
+        sound = True
+        for piece in pieces:
+            if not isinstance(piece, Slice):
+                continue
+            signal = cell_nets.get(piece.signal)
+            if signal is None:
+                self.add(
+                    "C-2", where, f"{piece.signal!r} is not a port or signal of {cell.name!r}", cell.name, inst.name
+                )
+                sound = False
+            elif piece.range is not None and signal.range is None:
+                self.add("C-3", where, f"{piece.signal!r} is a scalar, so it takes no range", cell.name, inst.name)
+                sound = False
+            elif piece.range is not None and not _within(piece.range, signal.range):
+                message = f"{_fmt_piece(piece)} lies outside the declared {_fmt_range(piece.signal, signal.range)}"
+                self.add("C-3", where, message, cell.name, inst.name)
+                sound = False
+        if not sound:
+            return
+        total = sum(_piece_width(piece, cell_nets) for piece in pieces)
+        if total != width(port.range):
+            message = f"connects {total} bit(s), but port {port.name!r} has {width(port.range)}"
+            self.add("C-4", where, message, cell.name, inst.name)
+            return
+        canonical = canonical_pieces(bits(pieces, cell_nets), cell_nets)
+        if canonical != pieces:
+            message = f"pieces are not canonical: write {', '.join(_fmt_piece(p) for p in canonical)}"
+            self.add("C-5", where, message, cell.name, inst.name)
+
     def unique(self, rule: str, where: str, what: str, names: list[str], cell: str) -> None:
         seen: set[str] = set()
         for name in names:
@@ -267,5 +341,67 @@ class _SemanticChecker(_Checker):
 
 
 def _nets(cell: Cell) -> tuple[Signal, ...]:
-    """Every net of a cell: its ports, plus the internal signals of a `Subckt`."""
+    """Every net of a cell, duplicates kept (for N-2): its ports, plus the internal signals of a `Subckt`."""
     return cell.ports + cell.signals if isinstance(cell, Subckt) else cell.ports
+
+
+def _within(r: Range, declared: Range | None) -> bool:
+    if declared is None:
+        return False
+    low, high = sorted((declared.msb, declared.lsb))
+    return low <= r.msb <= high and low <= r.lsb <= high
+
+
+def _piece_width(piece: Piece, cell_nets: dict[str, Signal]) -> int:
+    if isinstance(piece, NoConnect):
+        return piece.width
+    return width(piece.range if piece.range is not None else cell_nets[piece.signal].range)
+
+
+def _fmt_range(name: str, r: Range | None) -> str:
+    return name if r is None else f"{name}<{r.msb}:{r.lsb}>"
+
+
+def _fmt_piece(piece: Piece) -> str:
+    if isinstance(piece, NoConnect):
+        return f"NoConnect({piece.width})"
+    return _fmt_range(piece.signal, piece.range)
+
+
+def _fmt_bit(bit: NetBit) -> str:
+    return bit.signal if bit.index is None else f"{bit.signal}<{bit.index}>"
+
+
+# Warnings (spec 6.4)
+
+
+def lint(netlist: Netlist) -> list[Violation]:
+    """Floating-net warnings W-1 to W-3 of a valid netlist."""
+    warnings: list[Violation] = []
+    for cell in netlist.cells:
+        if not isinstance(cell, Subckt):
+            continue
+        cell_nets = nets(cell)
+        count = {bit: 0 for signal in cell_nets.values() for bit in signal_bits(signal)}
+        for inst in cell.instances:
+            for conn in inst.connections:
+                for bit in bits(conn.pieces, cell_nets):
+                    if bit is not OPEN:
+                        count[bit] += 1
+        where = f"cell {cell.name}"
+        for port in cell.ports:
+            for bit in signal_bits(port):
+                if count[bit] == 0:
+                    message = f"port bit {_fmt_bit(bit)} is not used inside the cell"
+                    warnings.append(Violation(rule="W-2", where=where, message=message, cell=cell.name))
+        for signal in cell.signals:
+            signal_count = [count[bit] for bit in signal_bits(signal)]
+            if not any(signal_count):
+                message = f"signal {signal.name!r} is not connected to anything"
+                warnings.append(Violation(rule="W-1", where=where, message=message, cell=cell.name))
+                continue
+            for bit, n in zip(signal_bits(signal), signal_count, strict=True):
+                if n < 2:
+                    message = f"net bit {_fmt_bit(bit)} is connected {n} time(s), so it floats"
+                    warnings.append(Violation(rule="W-3", where=where, message=message, cell=cell.name))
+    return warnings

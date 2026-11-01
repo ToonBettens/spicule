@@ -79,7 +79,7 @@ def test_valid_netlist_has_no_violations():
 
 
 def test_validate_raises_with_every_violation():
-    broken = replace_cell(VALID, "pair", signals=(ir.Signal(name="a"), ir.Signal(name="a")))
+    broken = replace_cell(VALID, "pair", signals=(ir.Signal(name="mid"), ir.Signal(name="a"), ir.Signal(name="a")))
     with pytest.raises(ir.ValidationError) as excinfo:
         ir.validate(broken)
     assert [v.rule for v in excinfo.value.violations] == ["N-2", "N-2"]
@@ -197,8 +197,8 @@ def test_n1_is_case_sensitive():
 
 
 def test_n2_ports_and_signals_share_a_namespace():
-    assert rules(replace_cell(VALID, "pair", signals=(ir.Signal(name="a"),))) == {"N-2"}
-    assert rules(replace_cell(VALID, "nch", ports=(ir.Signal(name="d"), ir.Signal(name="d")))) == {"N-2"}
+    assert rules(replace_cell(VALID, "pair", signals=(ir.Signal(name="mid"), ir.Signal(name="a")))) == {"N-2"}
+    assert rules(replace_cell(VALID, "nch", ports=(*NCH.ports, ir.Signal(name="d")))) == {"N-2"}
 
 
 def test_n3_instance_names_unique():

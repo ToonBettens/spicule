@@ -1,3 +1,4 @@
+from spicule.ir.connections import canonicalize
 from spicule.ir.model import (
     Binary,
     Call,
@@ -24,7 +25,7 @@ from spicule.ir.model import (
     Subckt,
     Value,
 )
-from spicule.ir.validate import ValidationError, Violation, check, validate
+from spicule.ir.validate import ValidationError, Violation, check, lint, validate
 
 __all__ = [
     "Binary",
@@ -53,6 +54,8 @@ __all__ = [
     "ValidationError",
     "Value",
     "Violation",
+    "canonicalize",
     "check",
+    "lint",
     "validate",
 ]

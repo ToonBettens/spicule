@@ -42,6 +42,7 @@ consumers (SPICE writers, data-out and analysis tools) read it.
    | D-1, D-2 | semantic | 4 | references between cells, define before use |
    | C-1 to C-5 | semantic | 6 | connections and their canonical form |
    | A-1 to A-6 | semantic | 7 | parameters and expressions in scope |
+   | W-1 to W-3 | warning | 6.4 | floating nets, reported while the netlist stays valid |
 
 ## 2. The model at a glance
 
@@ -170,6 +171,17 @@ to bits, then rebuild them left to right, each time taking the longest run:
 `canonicalize()` implements it, and every producer calls it. Example: with
 `d<7:0>` declared, bits `d<3> d<2> d<5> d<6> NC NC` are the pieces `d<3:2>`,
 `d<5:6>`, `NoConnect(2)`.
+
+### 6.4 Floating nets
+
+Floating nets are reported as warnings, not rule violations: the netlist stays
+valid. Bits of a `NoConnect` don't count as connections.
+
+| Warning | |
+| --- | --- |
+| W-1 | An internal signal is not connected to anything. |
+| W-2 | A port bit is not used by any instance inside its cell. |
+| W-3 | A bit of an internal signal is connected fewer than twice (and the signal is not entirely unused, which is W-1). |
 
 ## 7. Parameters
 
