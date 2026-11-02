@@ -34,7 +34,7 @@ from spicule.ir.model import (
     Subckt,
     Value,
 )
-from spicule.ir.validate import ValidationError, Violation, check, lint, validate
+from spicule.ir.validator import ValidationError, Violation, check, lint, validate
 
 __all__ = [
     "Binary",

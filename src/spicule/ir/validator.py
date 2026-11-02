@@ -17,6 +17,7 @@ Warnings don't make a netlist invalid.
 """
 
 import re
+import weakref
 from dataclasses import dataclass, fields
 from decimal import Decimal
 from functools import cache
@@ -79,11 +80,26 @@ class ValidationError(ValueError):
         super().__init__(f"invalid netlist, {len(violations)} violation(s):\n{lines}")
 
 
+# Identities of the netlist objects that passed `validate`. A netlist is
+# immutable, so it stays valid. An entry is #: dropped when its netlist is
+# garbage-collected, before its id can be reused.
+_validated: set[int] = set()
+
+
 def validate(netlist: Netlist) -> None:
-    """Raise `ValidationError` unless `netlist` follows every rule of the spec."""
+    """
+    Raise `ValidationError` unless `netlist` follows every rule of the spec. A netlist object that passed before
+    returns at once, so producers (`elaborate()`) and writers can both call it without doing the work twice.
+    """
+    key = id(netlist)  # key by identity instead of hash (cheaper)
+    if key in _validated:
+        return
     violations = check(netlist)
     if violations:
         raise ValidationError(violations)
+    if isinstance(netlist, Netlist):
+        _validated.add(key)
+        weakref.finalize(netlist, _validated.discard, key)
 
 
 def check(netlist: Netlist) -> list[Violation]:
@@ -349,10 +365,15 @@ class _SemanticChecker(_Checker):
                         self.instance_params(cell, own, inst, self.netlist.cells[pos])
 
     def instance_params(self, cell: Subckt, own: set[str], inst: Instance, target: Cell) -> None:
-        """A-1 to A-5 for one instance. `own` are the number parameters of the containing cell."""
+        """
+        A-1 to A-5 for one instance. `own` are the number parameters of the containing cell. An `External` target is
+        open: any parameter may be set (no A-1), none is required (no A-3), and declared ones are type-checked.
+        """
         where = f"cell {cell.name}, instance {inst.name}"
         decls = {decl.name: decl for decl in target.params}
+        closed = isinstance(target, Subckt)
         given: set[str] = set()
+        scope = f"number parameters of {cell.name!r}"
         for value in inst.params:
             pwhere = f"{where}, parameter {value.name}"
             if value.name in given:
@@ -360,11 +381,12 @@ class _SemanticChecker(_Checker):
                 continue
             given.add(value.name)
             decl = decls.get(value.name)
-            if decl is None:
+            if decl is None and closed:
                 self.add("A-1", pwhere, f"{target.name!r} declares no parameter {value.name!r}", cell.name, inst.name)
-            elif self.value_type(pwhere, decl.type, value.value, cell.name, inst.name):
-                scope = f"number parameters of {cell.name!r}"
+            elif decl is None or self.value_type(pwhere, decl.type, value.value, cell.name, inst.name):
                 self.scope("A-5", pwhere, value.value, own, scope, cell.name, inst.name)
+        if not closed:
+            return
         for decl in target.params:
             if decl.default is None and decl.name not in given:
                 message = f"parameter {decl.name!r} of {target.name!r} has no default, so it must be set"

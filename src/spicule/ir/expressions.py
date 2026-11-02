@@ -5,8 +5,7 @@ The IR holds expressions as trees. Text is how the HDL spells them:
 
     expr    := term (("+" | "-") term)*
     term    := unary (("*" | "/") unary)*
-    unary   := ("+" | "-") unary | power
-    power   := atom ("^" unary)?              right associative: 2^3^2 = 2^9
+    unary   := ("+" | "-") unary | atom
     atom    := NUMBER | NAME | NAME "(" expr ("," expr)* ")" | "(" expr ")"
 """
 
@@ -25,6 +24,7 @@ FUNCTIONS: dict[str, int] = {
     "log10": 1,
     "min": 2,
     "max": 2,
+    "pow": 2,
 }
 
 #: A number as text: optional sign, digits with an optional fraction, an optional exponent.
@@ -67,7 +67,7 @@ _TOKEN = re.compile(
     r"\s*(?:"
     r"(?P<number>(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
     r"|(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
-    r"|(?P<op>[-+*/^(),])"
+    r"|(?P<op>[-+*/(),])"
     r")"
 )
 
@@ -143,14 +143,7 @@ class _Parser:
         if self.at_op("-"):
             self.take()
             return Neg(operand=self.unary())
-        return self.power()
-
-    def power(self) -> Expr:
-        base = self.atom()
-        if self.at_op("^"):
-            self.take()
-            return Binary(op="^", left=base, right=self.unary())
-        return base
+        return self.atom()
 
     def atom(self) -> Expr:
         kind, value, position = self.take()
@@ -185,7 +178,7 @@ def parse_expression(text: str) -> Expression:
 # Printing
 
 # Binding strength: higher binds tighter. A node is wrapped in parentheses when its context needs more.
-_STRENGTH = {"+": 1, "-": 1, "*": 2, "/": 2, "neg": 3, "^": 4, "atom": 5}
+_STRENGTH = {"+": 1, "-": 1, "*": 2, "/": 2, "neg": 3, "atom": 4}
 
 
 def format_expression(expression: Expression | Expr) -> str:
@@ -204,10 +197,6 @@ def _render(node: Expr, needed: int) -> str:
             text, strength = f"{f}({', '.join(_render(a, 0) for a in args)})", _STRENGTH["atom"]
         case Neg(operand=operand):
             text, strength = f"-{_render(operand, _STRENGTH['neg'])}", _STRENGTH["neg"]
-        case Binary(op="^", left=left, right=right):
-            # Right associative, and the exponent may be a negation: 2^-3.
-            text = f"{_render(left, _STRENGTH['atom'])}^{_render(right, _STRENGTH['neg'])}"
-            strength = _STRENGTH["^"]
         case Binary(op=op, left=left, right=right):
             # Left associative: the right operand needs parentheses at the same strength (a - (b - c)).
             strength = _STRENGTH[op]

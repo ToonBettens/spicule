@@ -83,8 +83,8 @@ class Neg:
 
 @_model
 class Binary:
-    # "^" is exponentiation.
-    op: Literal["+", "-", "*", "/", "^"]
+    # Power is the function `pow`, not an operator.
+    op: Literal["+", "-", "*", "/"]
     left: Expr
     right: Expr
 
@@ -203,7 +203,8 @@ class External:
 Cell = Subckt | External
 
 
-@_model
+# A weakref slot lets the validator remember which netlist objects already passed (spicule.ir.validator).
+@dataclass(frozen=True, slots=True, kw_only=True, weakref_slot=True)
 class Netlist:
     """
     One or more top cells and every cell they use, each once, leaves first. Cell names are

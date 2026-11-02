@@ -249,6 +249,18 @@ change within version 1 (absent = unknown). Making it required later would be ve
 
 **Choice: a.**
 
+### R-14b Parameters of external cells
+
+| Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| a. Closed, like `Subckt`: only declared parameters, no default means required | + | + | 0 | - | -- | Every simulator and PDK parameter has to be declared, with defaults we don't own |
+| b. Every parameter must have a default | - | + | + | - | - | Hides a forgotten parameter in our own cells; copies foreign defaults |
+| c. Open: any parameter may be set, none is required, declared ones are type-checked | 0 | + | + | + | ++ | A typo on a device is caught by the simulator or LVS instead of the validator |
+
+**Choice: c, for `External` only.** The authority on an external cell's parameters is the PDK or the simulator,
+which reject unknown parameters themselves. `Subckt` parameters stay closed (A-1, A-3): there the cell is ours, and
+a forgotten or misspelt parameter is our bug.
+
 ### R-15 Parameter types
 
 | Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
@@ -375,14 +387,22 @@ Smaller choices that don't need a scored row:
 | A-6 | Defaults only refer to earlier parameters | Evaluation order is obvious; no cycles |
 | 7.1 | No bool or int parameter types | Simulators take numbers and strings; a flag is 0/1 (R-15) |
 | 7.2 | Unary `+` dropped | Otherwise `+w` and `w` would be different trees |
-| 7.2 | Functions `abs sqrt exp ln log10 min max` | Only functions every dialect has with the same meaning; `log` left out because tools disagree on its base |
+| 7.2 | Functions `abs sqrt exp ln log10 min max pow` | Only functions every dialect has with the same meaning; `log` left out because tools disagree on its base |
+| 7.2 | Power is the function `pow`, not an operator `^` | One spelling everywhere (tree, text, every writer). No associativity or precedence rules for `^`, and Spectre's `^` doesn't mean power anyway |
 | F-3 | `Number` values are never negative; negation is always `Neg` | Otherwise `-1` has two trees, `Number(-1)` and `Neg(Number(1))` (C2); the parser only produces the second |
 | 7.3 | No scale factors | Calibre reads `M` as milli, other tools as mega |
 | 7.3 | Engineering notation (exponent a multiple of 3, unpadded; plain when the exponent is 0) | Every exponent maps onto a familiar prefix (`e-6` is u, `e3` is k); exact, and equal numbers still always print the same |
 | 10 | The JSON module isn't called `json` | It would shadow the standard library in user code |
 
-## Open
+## Resolved: one device declaration for Spectre and CDL (Q-6)
 
-| | Question | When |
-| --- | --- | --- |
-| Q-6 | Does one device declaration serve both Spectre and CDL in the PDK? Check one real MOS line in each. | Start of the Spectre writer step |
+Real lines from a Virtuoso netlist:
+
+```
+CDL:      MM0 BIT BITb VDD VDD pch l=20.0n nfin=2 nf=1
+Spectre:  pu (BIT BITb VDD VDD) pch l=20n nfin=2 nf=1
+```
+
+The device name is the same in both (`pch`), CDL calls it with the element letter `M` (so `element` is
+`mos`, which Spectre ignores), and the parameters differ only in which ones each tool's netlister chose to print.
+One `External` declaration with all parameters serves both writers, and each writes the parameters an instance sets.

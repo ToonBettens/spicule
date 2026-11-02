@@ -196,11 +196,16 @@ parameter is always an `Expression`. A plain number is the smallest expression,
 `Expression(Number(...))`. The value of a string parameter is a `str`.
 Multiplicity `m` is an ordinary parameter: a cell that accepts it declares it.
 
+The parameters of an `External` cell are open: the cell is defined elsewhere, and
+so are its parameters and their defaults. An instance of an `External` may set
+any parameter, declared or not, and none is required. Declared parameters of an
+`External` still have their value type checked.
+
 | Rule | |
 | --- | --- |
-| A-1 | An instance only sets parameters its cell declares. |
+| A-1 | An instance of a `Subckt` only sets parameters the `Subckt` declares. |
 | A-2 | An instance sets each parameter at most once. |
-| A-3 | An instance sets every parameter that has no default. |
+| A-3 | An instance of a `Subckt` sets every parameter that has no default. |
 | A-4 | Values match the declared type (instance values and defaults alike). |
 | A-5 | An expression in an instance value refers only to number parameters of the containing cell. |
 | A-6 | An expression in a default refers only to number parameters declared earlier in the same cell. |
@@ -209,20 +214,19 @@ Multiplicity `m` is an ordinary parameter: a cell that accepts it declares it.
 
 An `Expression` holds a tree. Text is only how JSON and the HDL spell it. Nodes:
 `Number(value)`, `ParamRef(name)`, `Neg(operand)` (negation),
-`Binary(op, left, right)` with `op` one of `+ - * / ^` (`^` is
-exponentiation), and `Call(function, args)`. The text grammar:
+`Binary(op, left, right)` with `op` one of `+ - * /`, and `Call(function, args)`.
+Power is the function `pow(x, y)`, not an operator. The text grammar:
 
 ```
 expr    := term (("+" | "-") term)*
 term    := unary (("*" | "/") unary)*
-unary   := ("+" | "-") unary | power
-power   := atom ("^" unary)?              right associative: 2^3^2 = 2^9
+unary   := ("+" | "-") unary | atom
 atom    := NUMBER | NAME | NAME "(" expr ("," expr)* ")" | "(" expr ")"
 ```
 
-The parser drops a unary `+` (`+w` is `w`). Unary minus binds looser than `^`
-(`-2^2 = -4`). Functions: `abs`, `sqrt`, `exp`, `ln`, `log10` (one argument),
-`min`, `max` (two). Writers render as each dialect needs.
+The parser drops a unary `+` (`+w` is `w`). Functions: `abs`, `sqrt`, `exp`,
+`ln`, `log10` (one argument), `min`, `max`, `pow` (two). Writers render as each
+dialect needs.
 
 ### 7.3 Numbers
 
@@ -257,6 +261,6 @@ New annotations are added as new optional fields of `Meta`.
 | F-3 | `Range.msb` and `Range.lsb` are `>= 0`, `NoConnect.width >= 1`, and `Number.value >= 0` (a negative number is a `Neg` of its magnitude). |
 | F-4 | A `Connection` has at least one piece. |
 | F-5 | Numbers are finite. |
-| F-6 | `Binary.op` is one of `+ - * / ^`, and `Call.function` is from section 7.2 with the right number of arguments. |
+| F-6 | `Binary.op` is one of `+ - * /`, and `Call.function` is from section 7.2 with the right number of arguments. |
 | F-7 | A `Netlist` has at least one cell. |
 

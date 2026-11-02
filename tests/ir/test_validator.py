@@ -236,7 +236,7 @@ def test_d2_no_self_instantiation():
 def test_literal_inside_a_union_is_checked_not_crashing():
     from typing import Literal
 
-    from spicule.ir.validate import _FieldChecker, _type_name
+    from spicule.ir.validator import _FieldChecker, _type_name
 
     tp = Literal["a", "b"] | None
     assert _type_name(tp) == "'a' | 'b' | None"
@@ -245,3 +245,25 @@ def test_literal_inside_a_union_is_checked_not_crashing():
     assert checker.check_type(None, tp, "x", None, None)
     assert not checker.check_type("c", tp, "x", None, None)
     assert [v.rule for v in checker.violations] == ["F-1"]
+
+
+def test_validate_remembers_passed_netlists(monkeypatch):
+    import spicule.ir.validator as v
+
+    calls = []
+    real_check = v.check
+    monkeypatch.setattr(v, "check", lambda n: calls.append(n) or real_check(n))
+    netlist = dataclasses.replace(VALID)  # a fresh object
+    ir.validate(netlist)
+    ir.validate(netlist)
+    assert len(calls) == 1
+    # An equal but different object is validated again: identity, not equality.
+    ir.validate(dataclasses.replace(netlist))
+    assert len(calls) == 2
+
+
+def test_invalid_netlists_are_not_remembered():
+    broken = dataclasses.replace(VALID, cells=(NCH, NCH, PAIR, TB))
+    for _ in range(2):
+        with pytest.raises(ir.ValidationError):
+            ir.validate(broken)

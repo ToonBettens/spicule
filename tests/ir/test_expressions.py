@@ -62,9 +62,9 @@ def test_parse_number_rejects(text):
         ("2*l", b("*", n("2"), P(name="l"))),
         ("a + b * c", b("+", P(name="a"), b("*", P(name="b"), P(name="c")))),
         ("a - b - c", b("-", b("-", P(name="a"), P(name="b")), P(name="c"))),
-        ("2^3^2", b("^", n("2"), b("^", n("3"), n("2")))),
-        ("-2^2", ir.Neg(operand=b("^", n("2"), n("2")))),
-        ("2^-3", b("^", n("2"), ir.Neg(operand=n("3")))),
+        ("pow(2, pow(3, 2))", ir.Call(function="pow", args=(n("2"), ir.Call(function="pow", args=(n("3"), n("2")))))),
+        ("-pow(2, 2)", ir.Neg(operand=ir.Call(function="pow", args=(n("2"), n("2"))))),
+        ("pow(2, -3)", ir.Call(function="pow", args=(n("2"), ir.Neg(operand=n("3"))))),
         ("+w", P(name="w")),
         ("(w)", P(name="w")),
         ("max(a, 2)", ir.Call(function="max", args=(P(name="a"), n("2")))),
@@ -89,6 +89,7 @@ def test_spelling_leaves_no_trace():
         ("log(2)", "unknown function"),
         ("max(1)", "takes 2"),
         ("2 $ 3", "unexpected character"),
+        ("2^3", "unexpected character"),
         ("(a", "unexpected end"),
         ("(a b", r"expected '\)'"),
         ("a b", "unexpected 'b'"),
@@ -110,11 +111,11 @@ def test_parse_errors(text, message):
         "(a + b)*c",
         "a - (b - c)",
         "a - b - c",
-        "2^3^2",
-        "(2^3)^2",
-        "-2^2",
-        "(-2)^2",
-        "2^-3",
+        "pow(2, pow(3, 2))",
+        "pow(pow(2, 3), 2)",
+        "-pow(2, 2)",
+        "pow(-2, 2)",
+        "pow(2, -3)",
         "-(a + b)",
         "max(a, b + 1)",
         "1.5e-6*w",
@@ -165,7 +166,11 @@ RES = ir.External(
 )
 
 
-def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = ()) -> ir.Netlist:
+# The same resistor as a cell defined here: its parameters are closed and `l` is required.
+RES_SUB = ir.Subckt(name="res", ports=RES.ports, params=RES.params)
+
+
+def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = (), target: ir.Cell | None = None) -> ir.Netlist:
     inst = ir.Instance(
         name="r1",
         cell="res",
@@ -176,7 +181,7 @@ def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = ()) -> ir.Netl
         params=params,
     )
     cell = ir.Subckt(name="top", ports=(ir.Signal(name="a"), ir.Signal(name="b")), params=decls, instances=(inst,))
-    return ir.Netlist(cells=(RES, cell))
+    return ir.Netlist(cells=(target or RES_SUB, cell))
 
 
 L = ir.ParamValue(name="l", value=ir.expr("2e-6"))
@@ -226,3 +231,13 @@ def test_a6_defaults_use_earlier_parameters():
     assert rules(top(L, decls=later)) == {"A-6"}
     earlier = (later[1], later[0])
     assert rules(top(L, decls=earlier)) == set()
+
+
+def test_external_parameters_are_open():
+    # Any parameter may be set on an external cell, and none is required.
+    assert ir.check(top(target=RES)) == []
+    assert ir.check(top(ir.ParamValue(name="nfin", value=ir.expr("2")), target=RES)) == []
+    # Declared ones are still type-checked, set once, and in scope.
+    assert rules(top(ir.ParamValue(name="l", value="2e-6"), target=RES)) == {"A-4"}
+    assert rules(top(L, L, target=RES)) == {"A-2"}
+    assert rules(top(ir.ParamValue(name="nfin", value=ir.expr("2*w")), target=RES)) == {"A-5"}
