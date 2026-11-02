@@ -1,4 +1,4 @@
-"""Spectre: `write()` turns a netlist into Spectre text (`writer`), and `builtins` declares Spectre's own elements."""
+"""Spectre dialects (based on v23.1)."""
 
 from spicule.dialects.spectre.writer import write
 

@@ -1,40 +1,10 @@
-"""The Spectre writer: a validated netlist as a Spectre netlist.
-
-Spectre facts used here are from the Spectre 23.1 help.
-"""
+"""The Spectre writer: a validated netlist as a Spectre netlist."""
 
 from spicule.dialects.common import IDENTIFIER, NetNames, WriterError, cells_to_write, check_ground
-from spicule.dialects.spectre.builtins import BUILTINS
+from spicule.dialects.spectre.syntax import BUILTINS, BUS_FORMAT, CONSTANTS, KEYWORDS, MULTIPLICITY, RESERVED
 from spicule.ir import Element, Expression, External, Instance, Netlist, ParamDecl, ParamValue, Subckt, Value, validate
 from spicule.ir.connections import bits, nets, signal_bits
 from spicule.ir.expressions import format_expression, number, param_refs
-
-#: Bus bits as Virtuoso writes them: `d\<3\>`.
-BUS_FORMAT = r"{name}\<{index}\>"
-
-#: Netlist keywords: not allowed as subcircuit or instance names.
-KEYWORDS = frozenset([
-    "altergroup", "correlate", "else", "end", "ends", "export", "for",
-    "function", "global", "ic", "if", "in", "inline", "input", "invisible",
-    "library", "local", "march", "model", "nodeset", "out", "output",
-    "parameters", "paramset", "plot", "print", "protect", "pwr", "real",
-    "return", "save", "sens", "statistics", "subckt", "to", "truncate",
-    "unprotect", "vary", "visible",
-])  # fmt: skip
-
-#: Mathematical and physical constants: not allowed as any name.
-CONSTANTS = frozenset([
-    "M_1_PI", "M_2_PI", "M_2_SQRTPI", "M_DEGPERRAD", "M_E", "M_LN10",
-    "M_LN2", "M_LOG10E", "M_LOG2E", "M_PI", "M_PI_2", "M_PI_4",
-    "M_SQRT1_2", "M_SQRT2", "M_TWO_PI", "P_C", "P_CELSIUS0", "P_EPS0",
-    "P_H", "P_K", "P_Q", "P_U0",
-])  # fmt: skip
-
-#: Reserved words: not allowed as parameter names.
-RESERVED = frozenset(["freq", "scalem", "temp", "temper", "time", "tnom"])
-
-#: Spectre's implicit subcircuit multiplicity.
-MULTIPLICITY = "m"
 
 
 def write(
@@ -48,8 +18,7 @@ def write(
     """
     Write `netlist` as Spectre text.
 
-    - `top=None` writes every subcircuit, a library. `top="tb"` writes the subcircuits below `tb` and `tb`'s own
-      instances at the top level, as a simulation needs.
+    - `top=None` writes every subcircuit. `top="tb"` writes the subcircuits below `tb` and `tb`'s own instances at the top level.
     - `ground` names a scalar net of the top cell that is written as `0`, Spectre's reference node.
     - `bus_format` spells bus bits, with `{name}` and `{index}`.
     - `origins=True` writes each cell's and instance's `meta.origin` as a comment.

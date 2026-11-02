@@ -7,8 +7,7 @@ import pytest
 
 import spicule.ir as ir
 from spicule.dialects import cdl
-from spicule.dialects.cdl import writer
-from spicule.dialects.cdl.builtins import capacitor, resistor
+from spicule.dialects.cdl import syntax, writer
 from spicule.dialects.common import WriterError
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -81,6 +80,15 @@ BANK = ir.Subckt(
 NETLIST = ir.Netlist(cells=(NCH, PCH, LATCH, INV, BANK))
 
 
+def builtin(name: str) -> ir.External:
+    """A built-in as the HDL will declare it: here just its two pins (external parameters are open)."""
+    return ir.External(name=name, element=ir.Element.BUILTIN, ports=(sig("p"), sig("n")))
+
+
+capacitor = builtin("capacitor")
+resistor = builtin("resistor")
+
+
 def golden(name: str, text: str) -> None:
     path = GOLDEN / name
     if not path.exists():
@@ -149,4 +157,4 @@ def test_case_only_clashes_are_refused():
 
 def test_write_is_the_package_function():
     assert cdl.write is writer.write
-    assert writer.BUS_FORMAT == "{name}<{index}>"
+    assert syntax.BUS_FORMAT == "{name}<{index}>"

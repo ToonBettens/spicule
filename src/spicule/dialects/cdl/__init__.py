@@ -1,5 +1,4 @@
-"""CDL (Calibre SPICE): `write()` turns a netlist into CDL text (`writer`), and `builtins` declares CDL's own
-elements."""
+"""CDL (Calibre SPICE) based on Calibre Verification User's Manual v2023.1."""
 
 from spicule.dialects.cdl.writer import write
 

@@ -38,7 +38,7 @@ def cells_to_write(netlist: Netlist, top: str | None) -> tuple[list[Subckt], Sub
 
 
 def check_ground(top_cell: Subckt | None, ground: str | None) -> None:
-    """`ground` must be a scalar net of the top cell (shared writer argument, docs/writers.md)."""
+    """Check the shared writer argument `ground`: a scalar net of the top cell, so it needs a top."""
     if ground is None:
         return
     if top_cell is None:

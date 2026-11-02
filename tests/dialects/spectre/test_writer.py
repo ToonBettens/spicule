@@ -8,8 +8,7 @@ import pytest
 import spicule.ir as ir
 from spicule.dialects import spectre
 from spicule.dialects.common import WriterError
-from spicule.dialects.spectre import writer
-from spicule.dialects.spectre.builtins import resistor, vsource
+from spicule.dialects.spectre import syntax, writer
 
 GOLDEN = Path(__file__).parent / "golden"
 
@@ -109,6 +108,15 @@ TB = ir.Subckt(
 NETLIST = ir.Netlist(cells=(NCH, PCH, LATCH, INV, BUF, BANK, TB))
 
 
+def builtin(name: str) -> ir.External:
+    """A built-in as the HDL will declare it: here just its two pins (external parameters are open)."""
+    return ir.External(name=name, element=ir.Element.BUILTIN, ports=(sig("p"), sig("n")))
+
+
+resistor = builtin("resistor")
+vsource = builtin("vsource")
+
+
 def golden(name: str, text: str) -> None:
     path = GOLDEN / name
     if not path.exists():
@@ -169,7 +177,7 @@ def test_keywords_are_rejected():
 
 def test_write_is_the_package_function():
     assert spectre.write is writer.write
-    assert writer.BUS_FORMAT == r"{name}\<{index}\>"
+    assert syntax.BUS_FORMAT == r"{name}\<{index}\>"
 
 
 def test_invalid_netlists_are_refused():

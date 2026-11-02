@@ -1,9 +1,6 @@
-"""The CDL writer: a validated netlist as a CDL netlist.
+"""The CDL writer: a validated netlist as a CDL netlist."""
 
-CDL facts used here are from the Calibre Verification User's Manual v2023.1, "SPICE Format".
-"""
-
-from spicule.dialects.cdl.builtins import BUILTINS
+from spicule.dialects.cdl.syntax import BUILTINS, BUS_FORMAT, FUNCTIONS, LETTERS
 from spicule.dialects.common import NetNames, WriterError, cells_to_write, check_ground
 from spicule.ir import (
     Element,
@@ -21,26 +18,6 @@ from spicule.ir import (
 from spicule.ir.connections import bits, nets, signal_bits
 from spicule.ir.expressions import format_expression
 
-#: Bus bits with Calibre's default bus delimiter: `d<3>`.
-BUS_FORMAT = "{name}<{index}>"
-
-#: Calibre's `pow` truncates the exponent to an integer. `**` uses the real exponent, as `pow` does in the IR.
-FUNCTIONS = {"pow": "({0})**({1})"}
-
-#: How each built-in is written: its element letter, and the parameter written as the value (`R1 a b 1e3`).
-BUILTIN_LINES: dict[str, tuple[str, str]] = {"resistor": ("R", "r"), "capacitor": ("C", "c"), "inductor": ("L", "l")}
-
-#: The element letter for each kind of external cell. Subcircuits, ours and foreign, are called with `X`.
-LETTERS = {
-    Element.SUBCKT: "X",
-    Element.MOS: "M",
-    Element.DIODE: "D",
-    Element.BIPOLAR: "Q",
-    Element.RESISTOR: "R",
-    Element.CAPACITOR: "C",
-    Element.INDUCTOR: "L",
-}
-
 
 def write(
     netlist: Netlist,
@@ -52,7 +29,7 @@ def write(
     lvs: bool = True,
 ) -> str:
     """
-    Write `netlist` as CDL text. The shared arguments mean the same in every writer (docs/writers.md).
+    Write `netlist` as CDL text. The arguments shared with other writers mean the same there.
 
     - `top=None` writes every subcircuit as a `.SUBCKT`. `top="x"` writes the subcircuits below `x` and `x`'s own
       instances at the top level.
@@ -90,7 +67,7 @@ def _letter(target: Subckt | External) -> str:
     if isinstance(target, Subckt):
         return "X"
     if target.element is Element.BUILTIN:
-        return BUILTIN_LINES[target.name][0]
+        return BUILTINS[target.name][0]
     return LETTERS[target.element]
 
 
@@ -147,7 +124,7 @@ def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool) -> 
     letter = _letter(target)
     if isinstance(target, External) and target.element is Element.BUILTIN:
         # Ideal element: its value in place of a model name.
-        value_name = BUILTIN_LINES[target.name][1]
+        value_name = BUILTINS[target.name][1]
         values = {p.name: p.value for p in inst.params}
         if value_name not in values:
             raise WriterError(f"instance {inst.name!r}: CDL built-in {target.name!r} needs {value_name}")
