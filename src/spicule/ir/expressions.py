@@ -10,6 +10,7 @@ The IR holds expressions as trees. Text is how the HDL spells them:
 """
 
 import re
+from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from typing import NoReturn
 
@@ -181,27 +182,36 @@ def parse_expression(text: str) -> Expression:
 _STRENGTH = {"+": 1, "-": 1, "*": 2, "/": 2, "neg": 3, "atom": 4}
 
 
-def format_expression(expression: Expression | Expr) -> str:
-    """The text of an expression, with only the parentheses it needs. `parse_expression` reads it back."""
+def format_expression(expression: Expression | Expr, *, functions: Mapping[str, str] | None = None) -> str:
+    """
+    The text of an expression, with only the parentheses it needs. `parse_expression` reads it back.
+
+    `functions` lets a dialect spell a function differently: a template per function name, with `{0}`, `{1}` for
+    the arguments, e.g. `{"pow": "({0})**({1})"}`. The result is treated as an atom.
+    """
     root = expression.root if isinstance(expression, Expression) else expression
-    return _render(root, 0)
+    return _render(root, 0, functions or {})
 
 
-def _render(node: Expr, needed: int) -> str:
+def _render(node: Expr, needed: int, functions: Mapping[str, str]) -> str:
     match node:
         case Number(value=v):
             text, strength = format_number(v), _STRENGTH["atom"]
         case ParamRef(name=n):
             text, strength = n, _STRENGTH["atom"]
         case Call(function=f, args=args):
-            text, strength = f"{f}({', '.join(_render(a, 0) for a in args)})", _STRENGTH["atom"]
+            parts = [_render(a, 0, functions) for a in args]
+            template = functions.get(f)
+            text = template.format(*parts) if template else f"{f}({', '.join(parts)})"
+            strength = _STRENGTH["atom"]
         case Neg(operand=operand):
-            text, strength = f"-{_render(operand, _STRENGTH['neg'])}", _STRENGTH["neg"]
+            text, strength = f"-{_render(operand, _STRENGTH['neg'], functions)}", _STRENGTH["neg"]
         case Binary(op=op, left=left, right=right):
             # Left associative: the right operand needs parentheses at the same strength (a - (b - c)).
             strength = _STRENGTH[op]
             space = " " if op in "+-" else ""
-            text = f"{_render(left, strength)}{space}{op}{space}{_render(right, strength + 1)}"
+            left_text = _render(left, strength, functions)
+            text = f"{left_text}{space}{op}{space}{_render(right, strength + 1, functions)}"
     return f"({text})" if strength < needed else text
 
 

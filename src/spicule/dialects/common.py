@@ -37,6 +37,17 @@ def cells_to_write(netlist: Netlist, top: str | None) -> tuple[list[Subckt], Sub
     return defined, top_cell
 
 
+def check_ground(top_cell: Subckt | None, ground: str | None) -> None:
+    """`ground` must be a scalar net of the top cell (shared writer argument, docs/writers.md)."""
+    if ground is None:
+        return
+    if top_cell is None:
+        raise WriterError("ground needs a top cell")
+    net = nets(top_cell).get(ground)
+    if net is None or net.range is not None:
+        raise WriterError(f"ground {ground!r} is not a scalar net of {top_cell.name!r}")
+
+
 class NetNames:
     """The text name of every bit of one cell: bus bits spelled with `bus_format`, open bits as fresh nets."""
 

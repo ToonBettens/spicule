@@ -1,10 +1,3 @@
-"""Spectre's own elements as declarations (`element=builtin`), under Spectre's names and parameters.
-
-Port names are ours (Spectre's terminals are positional), in Spectre's terminal order. The declared parameters are
-a common subset of each element's instance parameters (Spectre 23.1 help), so their values are type-checked.
-External cells are open (spec 7.1): any other Spectre parameter may be set too, and none is required.
-"""
-
 from spicule.ir import Element, External, ParamDecl, ParamType, Signal
 
 _N = ParamType.NUMBER
@@ -48,7 +41,6 @@ vccs = _builtin("vccs", "sink src ps ns", {"gm": _N, "m": _N})
 ccvs = _builtin("ccvs", "p n", {"rm": _N, "probes": _S, "m": _N})
 cccs = _builtin("cccs", "sink src", {"gain": _N, "probes": _S, "m": _N})
 
-#: Every Spectre built-in the writer knows, by name.
 BUILTINS: dict[str, External] = {
     cell.name: cell for cell in (resistor, capacitor, inductor, vsource, isource, vcvs, vccs, ccvs, cccs)
 }
