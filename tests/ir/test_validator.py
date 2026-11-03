@@ -36,7 +36,7 @@ def mos(name: str, d: str, g: str, s: str) -> ir.Instance:
 PAIR = ir.Subckt(
     name="pair",
     ports=(ir.Signal(name="a"), ir.Signal(name="y", range=ir.Range(msb=1, lsb=0)), ir.Signal(name="vss")),
-    params=(ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER, default=num("1e-6")),),
+    params=(ir.ParamDecl(name="wn", default=num("1e-6")),),
     signals=(ir.Signal(name="mid"),),
     instances=(mos("m0", "mid", "a", "vss"), mos("m1", "mid", "a", "vss")),
 )
@@ -95,7 +95,7 @@ def test_validate_raises_with_every_violation():
             id="bool-not-int",
         ),
         pytest.param(
-            replace_cell(VALID, "pair", params=(ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER, default=1.5),)),  # ty: ignore[invalid-argument-type]
+            replace_cell(VALID, "pair", params=(ir.ParamDecl(name="wn", default=1.5),)),  # ty: ignore[invalid-argument-type]
             id="float-not-value",
         ),
         pytest.param(replace_cell(VALID, "pair", name=None), id="required-missing"),
@@ -141,13 +141,11 @@ def test_f4_connection_has_a_piece():
 
 @pytest.mark.parametrize("number", ["inf", "-inf", "nan", "snan"])
 def test_f5_finite_numbers(number):
-    assert rules(
-        replace_cell(VALID, "pair", params=(ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER, default=num(number)),))
-    ) == {"F-5"}
+    assert rules(replace_cell(VALID, "pair", params=(ir.ParamDecl(name="wn", default=num(number)),))) == {"F-5"}
 
 
 def with_default(root: ir.Expr) -> ir.Netlist:
-    params = (ir.ParamDecl(name="l", type=ir.ParamType.NUMBER, default=ir.Expression(root=root)),)
+    params = (ir.ParamDecl(name="l", default=ir.Expression(root=root)),)
     return replace_cell(VALID, "pair", params=params)
 
 
@@ -205,8 +203,8 @@ def test_n3_instance_names_unique():
 
 def test_n4_parameter_names_unique():
     twice = (
-        ir.ParamDecl(name="wn", type=ir.ParamType.NUMBER, default=num("1")),
-        ir.ParamDecl(name="wn", type=ir.ParamType.STRING, default="x"),
+        ir.ParamDecl(name="wn", default=num("1")),
+        ir.ParamDecl(name="wn", default=num("2")),
     )
     assert rules(replace_cell(VALID, "pair", params=twice)) == {"N-4"}
 

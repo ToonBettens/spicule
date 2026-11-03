@@ -1,4 +1,4 @@
-"""What Spectre is, as far as spicule needs it: names, reserved words, built-ins, bus bits."""
+"""What Spectre is, as far as spicule needs it."""
 
 #: Bus bits as Virtuoso writes them: `d\<3\>`.
 BUS_FORMAT = r"{name}\<{index}\>"

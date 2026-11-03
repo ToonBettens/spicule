@@ -51,7 +51,7 @@ Netlist(cells)                                            cells: Subckt | Extern
 Subckt(name, ports, params, signals, instances, meta)     defined here: a .subckt
 External(name, element, ports, meta)                      defined elsewhere
     ports:   Signal(name, range?)                         the pins, in pin order
-    params:  ParamDecl(name, type, default)               Subckt only
+    params:  ParamDecl(name, default)                     Subckt only, default: Expression
     signals: Signal(name, range?)                         internal nets only
 Instance(name, cell, connections, params, meta)           cell: the instantiated cell's name
     connections: Connection(port, pieces)
@@ -59,7 +59,7 @@ Instance(name, cell, connections, params, meta)           cell: the instantiated
     params:      ParamValue(name, value)
 Range(msb, lsb)
 Meta(origin?)                                             annotations, never affect meaning
-Value = Expression(root) | str
+Value = Expression(root) | str                            a str only on External instances
     root: Number(value) | ParamRef(name) | Neg(operand) | Binary(op, left, right) | Call(function, args)
 ```
 
@@ -191,11 +191,13 @@ Build parameters (the Python inputs of generators) never reach the IR.
 
 ### 7.1 Declarations and values
 
-A `Subckt` declares `ParamDecl(name, type, default)`. The type is `number` or
-`string`. Every parameter has a default, so an instance never has to set one.
-An instance sets `ParamValue(name, value)`. The value of a number parameter is
-always an `Expression`. A plain number is the smallest expression,
-`Expression(Number(...))`. The value of a string parameter is a `str`.
+A `Subckt` declares `ParamDecl(name, default)`. Every parameter has a default,
+so an instance never has to set one. Subckt parameters are numbers: the default
+and every value set on an instance are `Expression`s. A plain number is the
+smallest expression, `Expression(Number(...))`. An instance sets
+`ParamValue(name, value)`. Only on an instance of an `External` may a value also
+be a `str`, for text parameters of devices and built-ins (`type=dc`,
+`file="in.pwl"`).
 Multiplicity `m` is an ordinary parameter: a subckt that accepts it declares
 it.
 
@@ -208,9 +210,9 @@ from its value, and the simulator checks it.
 | --- | --- |
 | A-1 | An instance of a `Subckt` only sets parameters the `Subckt` declares. |
 | A-2 | An instance sets each parameter at most once. |
-| A-3 | Values match the declared type (instance values and defaults alike). |
-| A-4 | An expression in an instance value refers only to number parameters of the containing cell. |
-| A-5 | An expression in a default refers only to number parameters declared earlier in the same cell. |
+| A-3 | A value set on an instance of a `Subckt` is an `Expression`. |
+| A-4 | An expression in an instance value refers only to parameters of the containing cell. |
+| A-5 | An expression in a default refers only to parameters declared earlier in the same cell. |
 
 ### 7.2 Expressions
 

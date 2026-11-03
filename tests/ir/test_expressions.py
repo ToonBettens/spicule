@@ -143,9 +143,7 @@ def test_number_helper():
 
 
 def test_negative_number_nodes_are_invalid():
-    cell = ir.Subckt(
-        name="x", params=(ir.ParamDecl(name="v", type=ir.ParamType.NUMBER, default=ir.Expression(root=n("-1"))),)
-    )
+    cell = ir.Subckt(name="x", params=(ir.ParamDecl(name="v", default=ir.Expression(root=n("-1"))),))
     assert {v.rule for v in ir.check(ir.Netlist(cells=(cell,)))} == {"F-3"}
 
 
@@ -160,9 +158,8 @@ RES_SUB = ir.Subckt(
     name="res",
     ports=RES.ports,
     params=(
-        ir.ParamDecl(name="l", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
-        ir.ParamDecl(name="w", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
-        ir.ParamDecl(name="model", type=ir.ParamType.STRING, default="poly"),
+        ir.ParamDecl(name="l", default=ir.expr("1e-6")),
+        ir.ParamDecl(name="w", default=ir.expr("1e-6")),
     ),
 )
 
@@ -182,7 +179,7 @@ def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = (), target: ir
 
 
 L = ir.ParamValue(name="l", value=ir.expr("2e-6"))
-LEN = (ir.ParamDecl(name="len", type=ir.ParamType.NUMBER, default=ir.expr("2e-6")),)
+LEN = (ir.ParamDecl(name="len", default=ir.expr("2e-6")),)
 
 
 def rules(netlist: ir.Netlist) -> set[str]:
@@ -203,24 +200,21 @@ def test_a2_each_parameter_once():
     assert rules(top(L, L)) == {"A-2"}
 
 
-def test_a3_value_types():
+def test_a3_subckt_parameters_are_numbers():
     assert rules(top(ir.ParamValue(name="l", value="2e-6"))) == {"A-3"}
-    assert rules(top(L, ir.ParamValue(name="model", value=ir.expr("1")))) == {"A-3"}
-    bad_default = (ir.ParamDecl(name="len", type=ir.ParamType.STRING, default=ir.expr("1")),)
-    assert rules(top(L, decls=bad_default)) == {"A-3"}
+    text_default = (ir.ParamDecl(name="len", default="x"),)  # ty: ignore[invalid-argument-type]
+    assert "F-1" in rules(top(decls=text_default))
 
 
 def test_a4_instance_expressions_use_the_containing_cell():
     # `w` is a parameter of res, not of top: no inheritance.
     assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*w")))) == {"A-4"}
-    text_param = (ir.ParamDecl(name="len", type=ir.ParamType.STRING, default="x"),)
-    assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*len")), decls=text_param)) == {"A-4"}
 
 
 def test_a5_defaults_use_earlier_parameters():
     later = (
-        ir.ParamDecl(name="len", type=ir.ParamType.NUMBER, default=ir.expr("2*wid")),
-        ir.ParamDecl(name="wid", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
+        ir.ParamDecl(name="len", default=ir.expr("2*wid")),
+        ir.ParamDecl(name="wid", default=ir.expr("1e-6")),
     )
     assert rules(top(L, decls=later)) == {"A-5"}
     earlier = (later[1], later[0])
@@ -228,12 +222,12 @@ def test_a5_defaults_use_earlier_parameters():
 
 
 def test_every_declaration_has_a_default():
-    no_default = (ir.ParamDecl(name="len", type=ir.ParamType.NUMBER, default=None),)  # ty: ignore[invalid-argument-type]
+    no_default = (ir.ParamDecl(name="len", default=None),)  # ty: ignore[invalid-argument-type]
     assert "F-1" in rules(top(decls=no_default))
 
 
 def test_external_parameters_are_open():
-    # Any parameter may be set on an external cell, of either type.
+    # Any parameter may be set on an external cell, as a number or a text.
     assert ir.check(top(target=RES)) == []
     assert ir.check(top(ir.ParamValue(name="nfin", value=ir.expr("2")), target=RES)) == []
     assert ir.check(top(ir.ParamValue(name="model", value="poly"), target=RES)) == []

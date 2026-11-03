@@ -63,19 +63,13 @@ class Expression:
 # --- Parameters ---
 
 
-class ParamType(Enum):
-    NUMBER = "number"  # Values are `Expression`s (like `w` or `h`).
-    STRING = "string"  # Values are `str`s (like `file`).
-
-
-Value = Expression | str
+Value = Expression | str  # A `str` only on instances of external cells
 
 
 @_model
 class ParamDecl:
     name: str
-    type: ParamType
-    default: Value
+    default: Expression  # Subckt parameters are numbers
 
 
 @_model

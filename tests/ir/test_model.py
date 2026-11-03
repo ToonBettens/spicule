@@ -95,12 +95,12 @@ def test_expression_trees_nest():
             ),
         )
     )
-    decl = ir.ParamDecl(name="x", type=ir.ParamType.NUMBER, default=expr)
+    decl = ir.ParamDecl(name="x", default=expr)
     assert decl == dataclasses.replace(decl)
     assert len({decl, dataclasses.replace(decl)}) == 1
 
 
-ENUMS = (ir.Element, ir.ParamType)
+ENUMS = (ir.Element,)
 
 
 @pytest.mark.parametrize("enum", ENUMS, ids=lambda enum: enum.__name__)

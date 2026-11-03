@@ -31,11 +31,8 @@ def p(name: str, text: str) -> ir.ParamValue:
     return ir.ParamValue(name=name, value=ir.expr(text))
 
 
-NUM = ir.ParamType.NUMBER
-
-
 def decl(name: str, default: str) -> ir.ParamDecl:
-    return ir.ParamDecl(name=name, type=NUM, default=ir.expr(default))
+    return ir.ParamDecl(name=name, default=ir.expr(default))
 
 
 NCH = ir.External(

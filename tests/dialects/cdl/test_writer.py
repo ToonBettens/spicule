@@ -32,7 +32,7 @@ def p(name: str, text: str) -> ir.ParamValue:
 
 
 def decl(name: str, default: str) -> ir.ParamDecl:
-    return ir.ParamDecl(name=name, type=ir.ParamType.NUMBER, default=ir.expr(default))
+    return ir.ParamDecl(name=name, default=ir.expr(default))
 
 
 NCH = ir.External(name="nch", element=ir.Element.MOS, ports=(sig("d"), sig("g"), sig("s"), sig("b")))

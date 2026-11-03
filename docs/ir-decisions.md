@@ -304,6 +304,25 @@ added later without breaking anything.
 
 **Choice: a.**
 
+### R-15b Text parameters on subckts
+
+R-14c gives every `Subckt` parameter a default, so a parameter's type could simply be read from its default. But
+what would a text parameter on a subckt be for? Inside the subckt it can't be used: parameters are only used
+through `ParamRef` in expressions, which are numbers. Passing it on to a device would need a text reference, a new
+kind of value, and Spectre's subckt parameters are numeric. Nor does a simulator vary text: `sweep` and Monte Carlo
+step numbers, and corners switch model sections in the setup.
+
+| Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| a. A `type` field next to the default (number or string) | - | 0 | - | 0 | 0 | Type and default can disagree, and a text parameter can't be used |
+| b. The type is the default's type | + | + | + | 0 | 0 | Nothing to disagree, but text parameters still can't be used |
+| c. Subckt parameters are numbers. Text only as a value on an `External` instance | ++ | ++ | ++ | + | + | A text choice that varies (a flavour, `"lvt"`) is a build parameter |
+
+**Choice: c.** `ParamDecl(name, default)` with an `Expression` default, and no parameter types at all. A text
+value is only written on instances of external cells (`type=dc`, `file="in.pwl"`, `probe=vsense`). A text choice
+that differs between uses is fixed per design, so the generator takes it as a build parameter and writes the
+literal text on the device. That works in every dialect and shows the real value in the netlist.
+
 ### R-16 Multiplicity `m`
 
 | Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
@@ -419,7 +438,7 @@ Smaller choices that don't need a scored row:
 | 6.3 | Floating nets are warnings | A spare net is harmless and handy while editing |
 | A-4 | Instance expressions only see the containing cell's parameters | No silent inheritance from enclosing scopes (Spectre would allow it) |
 | A-5 | Defaults only refer to earlier parameters | Evaluation order is obvious; no cycles |
-| 7.1 | No bool or int parameter types | Simulators take numbers and strings; a flag is 0/1 (R-15) |
+| 7.1 | No bool or int parameter types | Simulators take numbers and strings; a flag is 0/1 (R-15). Subckt parameters are numbers only (R-15b) |
 | 7.2 | Unary `+` dropped | Otherwise `+w` and `w` would be different trees |
 | 7.2 | Functions `abs sqrt exp ln log10 min max pow` | Only functions every dialect has with the same meaning; `log` left out because tools disagree on its base |
 | 7.2 | Power is the function `pow`, not an operator `^` | One spelling everywhere (tree, text, every writer). No associativity or precedence rules for `^`, and Spectre's `^` doesn't mean power anyway |
