@@ -94,9 +94,9 @@ def _subckt(cell: Subckt, by_name: dict, bus_format: str, origins: bool) -> list
 def _check_multiplicity(cell: Subckt) -> None:
     """Spectre's `m` is implicit on every subcircuit, defaults to 1 and can't be used in expressions inside."""
     for decl in cell.params:
-        if decl.name == MULTIPLICITY and decl.default is not None and decl.default != number("1"):
+        if decl.name == MULTIPLICITY and decl.default != number("1"):
             raise WriterError(f"cell {cell.name!r}: Spectre's implicit m always defaults to 1")
-    values: list[Value] = [decl.default for decl in cell.params if decl.default is not None]
+    values: list[Value] = [decl.default for decl in cell.params]
     values += [p.value for inst in cell.instances for p in inst.params]
     for value in values:
         if isinstance(value, Expression) and MULTIPLICITY in param_refs(value):
@@ -117,7 +117,7 @@ def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool, ind
 
 
 def _decl(decl: ParamDecl) -> str:
-    return decl.name if decl.default is None else f"{decl.name}={_value(decl.default)}"
+    return f"{decl.name}={_value(decl.default)}"
 
 
 def _param(param: ParamValue) -> str:

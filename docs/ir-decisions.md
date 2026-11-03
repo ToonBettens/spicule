@@ -263,8 +263,37 @@ change within version 1 (absent = unknown). Making it required later would be ve
 | c. Open: any parameter may be set, none is required, declared ones are type-checked | 0 | + | + | + | ++ | A typo on a device is caught by the simulator or LVS instead of the validator |
 
 **Choice: c, for `External` only.** The authority on an external cell's parameters is the PDK or the simulator,
-which reject unknown parameters themselves. `Subckt` parameters stay closed (A-1, A-3): there the cell is ours, and
-a forgotten or misspelt parameter is our bug.
+which reject unknown parameters themselves. `Subckt` parameters stay closed (A-1): there the cell is ours, and
+a misspelt parameter is our bug. R-14c goes further: externals declare no parameters at all.
+
+### R-14c Parameter declarations, defaults and required parameters
+
+R-14b makes every parameter of an external cell optional, while PDK models do have required parameters
+(`nfin`). The simulator refuses an instance without them, but the model files that say so, and their defaults,
+are often protected and can't be read. A default declared on an `External` was type-checked and then used
+nowhere. Required subckt parameters, in turn, are rare, and CDL can't write them.
+
+| Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| a. `ParamDecl` gets `required: bool`. A `Subckt` param is required exactly when it has no default. An `External` param has no default | 0 | + | - | + | + | Two new rules. A `Subckt` decl with `required=False` and no default can be built |
+| b. `External.required: tuple[str, ...]`, no defaults on externals | - | 0 | - | 0 | 0 | A parameter's facts in two places |
+| c. Externals closed like a `Subckt`: no default means required, every default copied | + | + | ++ | - | + | **Veto**: the defaults are the PDK's, and often unreadable. A copy goes stale silently |
+| d. A separate `ExternalParam(name, type, required)` for externals, `ParamDecl(name, type, default?)` for subckts | ++ | ++ | + | + | + | One more class. Required parameters stay in both cells |
+| e. One `ParamDecl`, no default means required in both cells. No defaults on externals: a house default is copied onto instances by the producer | + | + | + | 0 | + | The same HDL spelling means required on a subckt and open on an external unless declared |
+| f. Every `Subckt` parameter has a default, nothing is required. An `External` declares no parameters at all | ++ | ++ | ++ | + | ++ | Loses Spectre's required subckt parameters and an early error for a forgotten PDK-required parameter |
+
+**Choice: f.** Two simple statements replace three rules. A subckt parameter always has a value we own, so no
+instance has to set it, and every subckt can be written in every dialect (CDL has no required parameters). An
+external cell's parameters are owned by the PDK or the simulator, including their defaults and which ones are
+required, so the IR declares none. It only records what an instance sets, whose type follows from the value.
+The simulator reports a missing required parameter by instance name.
+
+A default we want for an external cell ("our `nch` uses `l=16e-9`") is a choice about how we use the cell, not a
+fact about the cell. The producer writes it on each instance (in the HDL, a reusable `nch(l=16e-9)`), so the
+value is explicit in the IR and in the netlist.
+
+Considered and left out: closed externals that refuse unknown names. Nothing needs them yet. The flag can be
+added later without breaking anything.
 
 ### R-15 Parameter types
 
@@ -388,8 +417,8 @@ Smaller choices that don't need a scored row:
 | C-1 | Every port connected exactly once | A missing port is an error, never an implicit open |
 | 6.3 | Canonical form required | Plain dataclass equality, one JSON form per circuit, no bit expansion on every comparison (R-9) |
 | 6.3 | Floating nets are warnings | A spare net is harmless and handy while editing |
-| A-5 | Instance expressions only see the containing cell's parameters | No silent inheritance from enclosing scopes (Spectre would allow it) |
-| A-6 | Defaults only refer to earlier parameters | Evaluation order is obvious; no cycles |
+| A-4 | Instance expressions only see the containing cell's parameters | No silent inheritance from enclosing scopes (Spectre would allow it) |
+| A-5 | Defaults only refer to earlier parameters | Evaluation order is obvious; no cycles |
 | 7.1 | No bool or int parameter types | Simulators take numbers and strings; a flag is 0/1 (R-15) |
 | 7.2 | Unary `+` dropped | Otherwise `+w` and `w` would be different trees |
 | 7.2 | Functions `abs sqrt exp ln log10 min max pow` | Only functions every dialect has with the same meaning; `log` left out because tools disagree on its base |

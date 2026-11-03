@@ -34,15 +34,14 @@ def p(name: str, text: str) -> ir.ParamValue:
 NUM = ir.ParamType.NUMBER
 
 
-def decl(name: str, default: str | None = None) -> ir.ParamDecl:
-    return ir.ParamDecl(name=name, type=NUM, default=None if default is None else ir.expr(default))
+def decl(name: str, default: str) -> ir.ParamDecl:
+    return ir.ParamDecl(name=name, type=NUM, default=ir.expr(default))
 
 
 NCH = ir.External(
     name="nch",
     element=ir.Element.MOS,
     ports=(sig("d"), sig("g"), sig("s"), sig("b")),
-    params=(decl("l", "16e-9"), decl("nfin", "2"), decl("nf", "1"), decl("m", "1")),
 )
 PCH = dataclasses.replace(NCH, name="pch")
 LATCH = ir.External(name="latch4", element=ir.Element.SUBCKT, ports=(sig("d", 3, 0), sig("q", 3, 0)))

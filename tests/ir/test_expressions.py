@@ -143,10 +143,8 @@ def test_number_helper():
 
 
 def test_negative_number_nodes_are_invalid():
-    cell = ir.External(
-        name="x",
-        element=ir.Element.SUBCKT,
-        params=(ir.ParamDecl(name="v", type=ir.ParamType.NUMBER, default=ir.Expression(root=n("-1"))),),
+    cell = ir.Subckt(
+        name="x", params=(ir.ParamDecl(name="v", type=ir.ParamType.NUMBER, default=ir.Expression(root=n("-1"))),)
     )
     assert {v.rule for v in ir.check(ir.Netlist(cells=(cell,)))} == {"F-3"}
 
@@ -154,20 +152,19 @@ def test_negative_number_nodes_are_invalid():
 # Parameter rules
 
 
-RES = ir.External(
+# An external resistor: its parameters are open and not declared.
+RES = ir.External(name="res", element=ir.Element.RESISTOR, ports=(ir.Signal(name="p"), ir.Signal(name="n")))
+
+# The same resistor as a cell defined here: its parameters are closed, each with a default.
+RES_SUB = ir.Subckt(
     name="res",
-    element=ir.Element.RESISTOR,
-    ports=(ir.Signal(name="p"), ir.Signal(name="n")),
+    ports=RES.ports,
     params=(
-        ir.ParamDecl(name="l", type=ir.ParamType.NUMBER),
+        ir.ParamDecl(name="l", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
         ir.ParamDecl(name="w", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
         ir.ParamDecl(name="model", type=ir.ParamType.STRING, default="poly"),
     ),
 )
-
-
-# The same resistor as a cell defined here: its parameters are closed and `l` is required.
-RES_SUB = ir.Subckt(name="res", ports=RES.ports, params=RES.params)
 
 
 def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = (), target: ir.Cell | None = None) -> ir.Netlist:
@@ -193,6 +190,7 @@ def rules(netlist: ir.Netlist) -> set[str]:
 
 
 def test_parameters_valid():
+    assert ir.check(top()) == []  # every parameter has a default
     assert ir.check(top(L)) == []
     assert ir.check(top(ir.ParamValue(name="l", value=ir.expr("2*len")), decls=LEN)) == []
 
@@ -205,39 +203,40 @@ def test_a2_each_parameter_once():
     assert rules(top(L, L)) == {"A-2"}
 
 
-def test_a3_required_parameters_set():
-    assert rules(top()) == {"A-3"}
-
-
-def test_a4_value_types():
-    assert rules(top(ir.ParamValue(name="l", value="2e-6"))) == {"A-4"}
-    assert rules(top(L, ir.ParamValue(name="model", value=ir.expr("1")))) == {"A-4"}
+def test_a3_value_types():
+    assert rules(top(ir.ParamValue(name="l", value="2e-6"))) == {"A-3"}
+    assert rules(top(L, ir.ParamValue(name="model", value=ir.expr("1")))) == {"A-3"}
     bad_default = (ir.ParamDecl(name="len", type=ir.ParamType.STRING, default=ir.expr("1")),)
-    assert rules(top(L, decls=bad_default)) == {"A-4"}
+    assert rules(top(L, decls=bad_default)) == {"A-3"}
 
 
-def test_a5_instance_expressions_use_the_containing_cell():
+def test_a4_instance_expressions_use_the_containing_cell():
     # `w` is a parameter of res, not of top: no inheritance.
-    assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*w")))) == {"A-5"}
+    assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*w")))) == {"A-4"}
     text_param = (ir.ParamDecl(name="len", type=ir.ParamType.STRING, default="x"),)
-    assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*len")), decls=text_param)) == {"A-5"}
+    assert rules(top(ir.ParamValue(name="l", value=ir.expr("2*len")), decls=text_param)) == {"A-4"}
 
 
-def test_a6_defaults_use_earlier_parameters():
+def test_a5_defaults_use_earlier_parameters():
     later = (
         ir.ParamDecl(name="len", type=ir.ParamType.NUMBER, default=ir.expr("2*wid")),
         ir.ParamDecl(name="wid", type=ir.ParamType.NUMBER, default=ir.expr("1e-6")),
     )
-    assert rules(top(L, decls=later)) == {"A-6"}
+    assert rules(top(L, decls=later)) == {"A-5"}
     earlier = (later[1], later[0])
     assert rules(top(L, decls=earlier)) == set()
 
 
+def test_every_declaration_has_a_default():
+    no_default = (ir.ParamDecl(name="len", type=ir.ParamType.NUMBER, default=None),)  # ty: ignore[invalid-argument-type]
+    assert "F-1" in rules(top(decls=no_default))
+
+
 def test_external_parameters_are_open():
-    # Any parameter may be set on an external cell, and none is required.
+    # Any parameter may be set on an external cell, of either type.
     assert ir.check(top(target=RES)) == []
     assert ir.check(top(ir.ParamValue(name="nfin", value=ir.expr("2")), target=RES)) == []
-    # Declared ones are still type-checked, set once, and in scope.
-    assert rules(top(ir.ParamValue(name="l", value="2e-6"), target=RES)) == {"A-4"}
+    assert ir.check(top(ir.ParamValue(name="model", value="poly"), target=RES)) == []
+    # Still set once, and in scope.
     assert rules(top(L, L, target=RES)) == {"A-2"}
-    assert rules(top(ir.ParamValue(name="nfin", value=ir.expr("2*w")), target=RES)) == {"A-5"}
+    assert rules(top(ir.ParamValue(name="nfin", value=ir.expr("2*w")), target=RES)) == {"A-4"}

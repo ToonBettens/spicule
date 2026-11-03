@@ -72,12 +72,9 @@ def _letter(target: Subckt | External) -> str:
 
 
 def _check(written: list[Subckt], by_name: dict, lvs: bool) -> None:
-    """Writer checks: built-ins, required parameters, and names that differ only in case (Calibre folds case)."""
+    """Writer checks: built-ins, and names that differ only in case (Calibre folds case)."""
     _unique_folded("cell", [c.name for c in by_name.values()], None)
     for cell in written:
-        for decl in cell.params:
-            if decl.default is None:
-                raise WriterError(f"cell {cell.name!r}: CDL can't declare parameter {decl.name!r} without a default")
         _unique_folded("net", [net.name for net in cell.ports + cell.signals], cell.name)
         _unique_folded("parameter", [decl.name for decl in cell.params], cell.name)
         for inst in cell.instances:
@@ -141,7 +138,6 @@ def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool) -> 
 
 
 def _decl(decl: ParamDecl) -> str:
-    assert decl.default is not None  # checked in _check
     return f"{decl.name}={_value(decl.default)}"
 
 

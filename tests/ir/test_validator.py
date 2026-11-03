@@ -19,10 +19,6 @@ NCH = ir.External(
     name="nch",
     element=ir.Element.MOS,
     ports=tuple(ir.Signal(name=n) for n in ("d", "g", "s", "b")),
-    params=(
-        ir.ParamDecl(name="w", type=ir.ParamType.NUMBER),
-        ir.ParamDecl(name="m", type=ir.ParamType.NUMBER, default=num("1")),
-    ),
 )
 
 

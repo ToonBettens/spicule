@@ -126,16 +126,11 @@ def test_a_small_netlist():
         name="nch",
         element=ir.Element.MOS,
         ports=tuple(ir.Signal(name=n) for n in ("d", "g", "s", "b")),
-        params=(
-            ir.ParamDecl(name="w", type=ir.ParamType.NUMBER),
-            ir.ParamDecl(name="m", type=ir.ParamType.NUMBER, default=num("1")),
-        ),
     )
     vdc = ir.External(
         name="vdc",
         element=ir.Element.BUILTIN,
         ports=(ir.Signal(name="p"), ir.Signal(name="n")),
-        params=(ir.ParamDecl(name="dc", type=ir.ParamType.NUMBER, default=num("0")),),
     )
     four = ir.Range(msb=3, lsb=0)
     mn = ir.Instance(

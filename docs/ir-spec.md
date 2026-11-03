@@ -41,7 +41,7 @@ consumers (SPICE writers, data-out and analysis tools) read it.
    | N-1 to N-4 | semantic | 3 | unique names |
    | D-1, D-2 | semantic | 4 | references between cells, define before use |
    | C-1 to C-5 | semantic | 6 | connections and their canonical form |
-   | A-1 to A-6 | semantic | 7 | parameters and expressions in scope |
+   | A-1 to A-5 | semantic | 7 | parameters and expressions in scope |
    | W-1 to W-3 | warning | 6.4 | floating nets, reported while the netlist stays valid |
 
 ## 2. The model at a glance
@@ -49,9 +49,9 @@ consumers (SPICE writers, data-out and analysis tools) read it.
 ```
 Netlist(cells)                                            cells: Subckt | External, leaves first
 Subckt(name, ports, params, signals, instances, meta)     defined here: a .subckt
-External(name, element, ports, params, meta)              defined elsewhere
+External(name, element, ports, meta)                      defined elsewhere
     ports:   Signal(name, range?)                         the pins, in pin order
-    params:  ParamDecl(name, type, default?)
+    params:  ParamDecl(name, type, default)               Subckt only
     signals: Signal(name, range?)                         internal nets only
 Instance(name, cell, connections, params, meta)           cell: the instantiated cell's name
     connections: Connection(port, pieces)
@@ -98,8 +98,9 @@ pulled in by include directives, which belong to the simulation setup, not to
 the IR.
 
 Such a cell is still instantiated like any other. For that the netlist needs
-its interface (name, ports in pin order, parameters) and nothing else: an
-`External` cell is exactly that interface, without contents.
+its interface (name and ports in pin order) and nothing else: an `External`
+cell is exactly that interface, without contents. Its parameters are not
+declared (section 7.1).
 
 To call it, a writer must know what kind of thing the name refers to, because
 many SPICE dialects write a different instance line for each: the first letter
@@ -190,25 +191,26 @@ Build parameters (the Python inputs of generators) never reach the IR.
 
 ### 7.1 Declarations and values
 
-A cell declares `ParamDecl(name, type, default?)`. The type is `number` or
-`string`. An instance sets `ParamValue(name, value)`. The value of a number
-parameter is always an `Expression`. A plain number is the smallest expression,
+A `Subckt` declares `ParamDecl(name, type, default)`. The type is `number` or
+`string`. Every parameter has a default, so an instance never has to set one.
+An instance sets `ParamValue(name, value)`. The value of a number parameter is
+always an `Expression`. A plain number is the smallest expression,
 `Expression(Number(...))`. The value of a string parameter is a `str`.
-Multiplicity `m` is an ordinary parameter: a cell that accepts it declares it.
+Multiplicity `m` is an ordinary parameter: a subckt that accepts it declares
+it.
 
-The parameters of an `External` cell are open: the cell is defined elsewhere, and
-so are its parameters and their defaults. An instance of an `External` may set
-any parameter, declared or not, and none is required. Declared parameters of an
-`External` still have their value type checked.
+An `External` declares no parameters. They are open: the cell is defined
+elsewhere, and so are its parameters, their defaults and which ones are
+required. An instance of an `External` may set any parameter. Its type follows
+from its value, and the simulator checks it.
 
 | Rule | |
 | --- | --- |
 | A-1 | An instance of a `Subckt` only sets parameters the `Subckt` declares. |
 | A-2 | An instance sets each parameter at most once. |
-| A-3 | An instance of a `Subckt` sets every parameter that has no default. |
-| A-4 | Values match the declared type (instance values and defaults alike). |
-| A-5 | An expression in an instance value refers only to number parameters of the containing cell. |
-| A-6 | An expression in a default refers only to number parameters declared earlier in the same cell. |
+| A-3 | Values match the declared type (instance values and defaults alike). |
+| A-4 | An expression in an instance value refers only to number parameters of the containing cell. |
+| A-5 | An expression in a default refers only to number parameters declared earlier in the same cell. |
 
 ### 7.2 Expressions
 

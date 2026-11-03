@@ -8,7 +8,7 @@ Two groups of rules (spec 1.6), each with one checker class behind one public fu
 | N-1 to N-4       | section 3   | `check_semantics`, `_SemanticChecker.names`  |
 | D-1, D-2         | section 4   | `check_semantics`, `_SemanticChecker.refs`   |
 | C-1 to C-5       | section 6   | `check_semantics`, `_SemanticChecker.conns`  |
-| A-1 to A-6       | section 7   | `check_semantics`, `_SemanticChecker.params` |
+| A-1 to A-5       | section 7   | `check_semantics`, `_SemanticChecker.params` |
 | W-1 to W-3       | section 6.4 | `lint` (warnings, on a valid netlist)        |
 
 `check` runs the field rules, and the semantic rules only when every field rule passes.
@@ -231,7 +231,7 @@ class _FieldChecker(_Checker):
 
 
 class _SemanticChecker(_Checker):
-    """N-1 to N-4 (names), D-1, D-2 (references), C-1 to C-5 (connections) and A-1 to A-6 (parameters), on a
+    """N-1 to N-4 (names), D-1, D-2 (references), C-1 to C-5 (connections) and A-1 to A-5 (parameters), on a
     netlist that passes every field rule."""
 
     def __init__(self, netlist: Netlist):
@@ -259,7 +259,7 @@ class _SemanticChecker(_Checker):
             self.unique("N-2", where, "port or signal", [net.name for net in _nets(cell)], cell.name)
             if isinstance(cell, Subckt):
                 self.unique("N-3", where, "instance", [inst.name for inst in cell.instances], cell.name)
-            self.unique("N-4", where, "parameter", [param.name for param in cell.params], cell.name)
+                self.unique("N-4", where, "parameter", [param.name for param in cell.params], cell.name)
 
     def refs(self) -> None:
         """D-1, D-2."""
@@ -344,32 +344,32 @@ class _SemanticChecker(_Checker):
             self.add("C-5", where, message, cell.name, inst.name)
 
     def params(self) -> None:
-        """A-4 and A-6 for every declaration, then A-1 to A-5 for every instance whose reference is sound."""
+        """A-3 and A-5 for every declaration, then A-1 to A-4 for every instance whose reference is sound."""
         for here, cell in enumerate(self.netlist.cells):
+            if not isinstance(cell, Subckt):
+                continue
             earlier: set[str] = set()
             for decl in cell.params:
-                if decl.default is not None:
-                    where = f"cell {cell.name}, parameter {decl.name}"
-                    if self.value_type(where, decl.type, decl.default, cell.name, None):
-                        scope = "number parameters declared earlier in the same cell"
-                        self.scope("A-6", where, decl.default, earlier, scope, cell.name, None)
+                where = f"cell {cell.name}, parameter {decl.name}"
+                if self.value_type(where, decl.type, decl.default, cell.name, None):
+                    scope = "number parameters declared earlier in the same cell"
+                    self.scope("A-5", where, decl.default, earlier, scope, cell.name, None)
                 if decl.type is ParamType.NUMBER:
                     earlier.add(decl.name)
-            if isinstance(cell, Subckt):
-                own = {decl.name for decl in cell.params if decl.type is ParamType.NUMBER}
-                for inst in cell.instances:
-                    pos = self.position.get(inst.cell)
-                    if pos is not None and pos < here:
-                        self.instance_params(cell, own, inst, self.netlist.cells[pos])
+            own = {decl.name for decl in cell.params if decl.type is ParamType.NUMBER}
+            for inst in cell.instances:
+                pos = self.position.get(inst.cell)
+                if pos is not None and pos < here:
+                    self.instance_params(cell, own, inst, self.netlist.cells[pos])
 
     def instance_params(self, cell: Subckt, own: set[str], inst: Instance, target: Cell) -> None:
         """
-        A-1 to A-5 for one instance. `own` are the number parameters of the containing cell. An `External` target is
-        open: any parameter may be set (no A-1), none is required (no A-3), and declared ones are type-checked.
+        A-1 to A-4 for one instance. `own` are the number parameters of the containing cell. An `External` target is
+        open: it declares no parameters, and any may be set (no A-1, no A-3).
         """
         where = f"cell {cell.name}, instance {inst.name}"
-        decls = {decl.name: decl for decl in target.params}
         closed = isinstance(target, Subckt)
+        decls = {decl.name: decl for decl in target.params} if closed else {}
         given: set[str] = set()
         scope = f"number parameters of {cell.name!r}"
         for value in inst.params:
@@ -382,28 +382,22 @@ class _SemanticChecker(_Checker):
             if decl is None and closed:
                 self.add("A-1", pwhere, f"{target.name!r} declares no parameter {value.name!r}", cell.name, inst.name)
             elif decl is None or self.value_type(pwhere, decl.type, value.value, cell.name, inst.name):
-                self.scope("A-5", pwhere, value.value, own, scope, cell.name, inst.name)
-        if not closed:
-            return
-        for decl in target.params:
-            if decl.default is None and decl.name not in given:
-                message = f"parameter {decl.name!r} of {target.name!r} has no default, so it must be set"
-                self.add("A-3", where, message, cell.name, inst.name)
+                self.scope("A-4", pwhere, value.value, own, scope, cell.name, inst.name)
 
     def value_type(self, where: str, ptype: ParamType, value: Value, cell: str, instance: str | None) -> bool:
-        """A-4: an `Expression` for a number parameter, a `str` for a string parameter."""
+        """A-3: an `Expression` for a number parameter, a `str` for a string parameter."""
         if ptype is ParamType.NUMBER and not isinstance(value, Expression):
-            self.add("A-4", where, f"a number parameter takes an expression, not the text {value!r}", cell, instance)
+            self.add("A-3", where, f"a number parameter takes an expression, not the text {value!r}", cell, instance)
             return False
         if ptype is ParamType.STRING and not isinstance(value, str):
-            self.add("A-4", where, "a string parameter takes text, not an expression", cell, instance)
+            self.add("A-3", where, "a string parameter takes text, not an expression", cell, instance)
             return False
         return True
 
     def scope(
         self, rule: str, where: str, value: Value, allowed: set[str], scope: str, cell: str, instance: str | None
     ) -> None:
-        """A-5, A-6: an expression only refers to the parameters in `allowed`."""
+        """A-4, A-5: an expression only refers to the parameters in `allowed`."""
         if not isinstance(value, Expression):
             return
         outside = [name for name in param_refs(value) if name not in allowed]

@@ -75,7 +75,7 @@ Value = Expression | str
 class ParamDecl:
     name: str
     type: ParamType
-    default: Value | None = None  # None: required parameter
+    default: Value
 
 
 @_model
@@ -162,7 +162,6 @@ class External:
     name: str
     element: Element
     ports: tuple[Signal, ...] = ()
-    params: tuple[ParamDecl, ...] = ()
     meta: Meta = field(default=Meta(), compare=False)
 
 

@@ -31,13 +31,11 @@ def p(name: str, text: str) -> ir.ParamValue:
     return ir.ParamValue(name=name, value=ir.expr(text))
 
 
-def decl(name: str, default: str | None = None) -> ir.ParamDecl:
-    return ir.ParamDecl(name=name, type=ir.ParamType.NUMBER, default=None if default is None else ir.expr(default))
+def decl(name: str, default: str) -> ir.ParamDecl:
+    return ir.ParamDecl(name=name, type=ir.ParamType.NUMBER, default=ir.expr(default))
 
 
-NCH = ir.External(
-    name="nch", element=ir.Element.MOS, ports=(sig("d"), sig("g"), sig("s"), sig("b")), params=(decl("l"),)
-)
+NCH = ir.External(name="nch", element=ir.Element.MOS, ports=(sig("d"), sig("g"), sig("s"), sig("b")))
 PCH = dataclasses.replace(NCH, name="pch")
 LATCH = ir.External(name="latch4", element=ir.Element.SUBCKT, ports=(sig("d", 3, 0), sig("q", 3, 0)))
 
@@ -141,13 +139,6 @@ def test_builtins_need_lvs_false():
     with pytest.raises(WriterError, match="LVS netlist"):
         cdl.write(netlist)
     golden("builtins.cdl", cdl.write(netlist, lvs=False))
-
-
-def test_required_subckt_parameters_are_refused():
-    bare = dataclasses.replace(INV, params=(decl("nfin"),))
-    netlist = dataclasses.replace(NETLIST, cells=tuple(bare if c.name == "inv" else c for c in NETLIST.cells))
-    with pytest.raises(WriterError, match="without a default"):
-        cdl.write(netlist)
 
 
 def test_case_only_clashes_are_refused():
