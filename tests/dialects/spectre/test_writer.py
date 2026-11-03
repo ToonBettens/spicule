@@ -21,8 +21,10 @@ def conn(port: str, *pieces: ir.Piece) -> ir.Connection:
     return ir.Connection(port=port, pieces=pieces)
 
 
-def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.Slice:
-    return ir.Slice(signal=name, range=None if msb is None else ir.Range(msb=msb, lsb=lsb if lsb is not None else msb))
+def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.SignalRef:
+    return ir.SignalRef(
+        signal=name, range=None if msb is None else ir.Range(msb=msb, lsb=lsb if lsb is not None else msb)
+    )
 
 
 def p(name: str, text: str) -> ir.ParamValue:

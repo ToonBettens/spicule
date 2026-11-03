@@ -13,10 +13,10 @@ EN = ir.Signal(name="en")
 NETS = {"d": D, "en": EN}
 
 
-def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.Slice:
+def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.SignalRef:
     if msb is None:
-        return ir.Slice(signal=name)
-    return ir.Slice(signal=name, range=ir.Range(msb=msb, lsb=lsb if lsb is not None else msb))
+        return ir.SignalRef(signal=name)
+    return ir.SignalRef(signal=name, range=ir.Range(msb=msb, lsb=lsb if lsb is not None else msb))
 
 
 def test_indices_follow_the_range_direction():
@@ -111,7 +111,7 @@ def test_c1_every_port_exactly_once():
     assert rules(tb_with(IN, OUT, ir.Connection(port="x", pieces=(s("en"),)))) == {"C-1"}  # no port x
 
 
-def test_c2_slices_name_signals_of_the_cell():
+def test_c2_signal_refs_name_signals_of_the_cell():
     assert rules(tb_with(IN, ir.Connection(port="o", pieces=(s("missing"),)))) == {"C-2"}
 
 

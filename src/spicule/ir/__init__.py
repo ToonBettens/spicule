@@ -1,3 +1,4 @@
+from spicule.ir import connections
 from spicule.ir.connections import canonicalize
 from spicule.ir.expressions import (
     ExpressionError,
@@ -31,7 +32,7 @@ from spicule.ir.model import (
     Piece,
     Range,
     Signal,
-    Slice,
+    SignalRef,
     Subckt,
     Value,
     is_identifier,
@@ -62,13 +63,14 @@ __all__ = [
     "Piece",
     "Range",
     "Signal",
-    "Slice",
+    "SignalRef",
     "Subckt",
     "ValidationError",
     "Value",
     "Violation",
     "canonicalize",
     "check",
+    "connections",
     "expr",
     "format_expression",
     "format_number",

@@ -175,8 +175,8 @@ def top(*params: ir.ParamValue, decls: tuple[ir.ParamDecl, ...] = (), target: ir
         name="r1",
         cell="res",
         connections=(
-            ir.Connection(port="p", pieces=(ir.Slice(signal="a"),)),
-            ir.Connection(port="n", pieces=(ir.Slice(signal="b"),)),
+            ir.Connection(port="p", pieces=(ir.SignalRef(signal="a"),)),
+            ir.Connection(port="n", pieces=(ir.SignalRef(signal="b"),)),
         ),
         params=params,
     )

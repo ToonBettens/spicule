@@ -44,7 +44,7 @@ from spicule.ir.model import (
     Piece,
     Range,
     Signal,
-    Slice,
+    SignalRef,
     Subckt,
     Value,
     is_identifier,
@@ -131,7 +131,7 @@ class _Checker:
 #: Fields that hold an identifier (F-2).
 _NAMES = {
     (Subckt, "name"), (External, "name"), (Signal, "name"), (Instance, "name"), (Instance, "cell"),
-    (Connection, "port"), (Slice, "signal"), (ParamDecl, "name"), (ParamValue, "name"), (ParamRef, "name"),
+    (Connection, "port"), (SignalRef, "signal"), (ParamDecl, "name"), (ParamValue, "name"), (ParamRef, "name"),
 }  # fmt: skip
 
 
@@ -316,7 +316,7 @@ class _SemanticChecker(_Checker):
         """C-2 and C-3 per piece, then C-4 (total width) and C-5 (canonical form) if every piece is sound."""
         sound = True
         for piece in pieces:
-            if not isinstance(piece, Slice):
+            if not isinstance(piece, SignalRef):
                 continue
             signal = cell_nets.get(piece.signal)
             if signal is None:

@@ -199,6 +199,11 @@ failing on a split) disappears because every producer calls `canonicalize()`. No
 wins (best on C1-C3); it is overridden on the lens (bus-to-port intent is a real concept, R-8), not on the
 criteria.
 
+The slice piece is named `SignalRef`, not `Slice`. It also refers to a scalar
+signal or a whole bus, which are not slices, and it pairs with `ParamRef`:
+`Signal` declares a net and `SignalRef` uses it, as `ParamDecl` and `ParamRef`
+do for parameters.
+
 ### R-10 Connection by port name or position
 
 | Alternative | C1 | C2 | C3 | C4 | C5 | Notes |

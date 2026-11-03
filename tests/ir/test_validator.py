@@ -31,7 +31,7 @@ def mos(name: str, d: str, g: str, s: str) -> ir.Instance:
         name=name,
         cell="nch",
         connections=tuple(
-            ir.Connection(port=p, pieces=(ir.Slice(signal=n),)) for p, n in (("d", d), ("g", g), ("s", s), ("b", s))
+            ir.Connection(port=p, pieces=(ir.SignalRef(signal=n),)) for p, n in (("d", d), ("g", g), ("s", s), ("b", s))
         ),
         params=(ir.ParamValue(name="w", value=num("1e-6")),),
     )
@@ -53,9 +53,9 @@ TB = ir.Subckt(
             name="dut",
             cell="pair",
             connections=(
-                ir.Connection(port="a", pieces=(ir.Slice(signal="a"),)),
-                ir.Connection(port="y", pieces=(ir.Slice(signal="q"),)),
-                ir.Connection(port="vss", pieces=(ir.Slice(signal="gnd"),)),
+                ir.Connection(port="a", pieces=(ir.SignalRef(signal="a"),)),
+                ir.Connection(port="y", pieces=(ir.SignalRef(signal="q"),)),
+                ir.Connection(port="vss", pieces=(ir.SignalRef(signal="gnd"),)),
             ),
         ),
     ),

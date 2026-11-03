@@ -142,10 +142,10 @@ def test_a_small_netlist():
         name="mn",
         cell="nch",
         connections=(
-            ir.Connection(port="d", pieces=(ir.Slice(signal="out", range=ir.Range(msb=0, lsb=0)),)),
-            ir.Connection(port="g", pieces=(ir.Slice(signal="a"),)),
-            ir.Connection(port="s", pieces=(ir.Slice(signal="vss"),)),
-            ir.Connection(port="b", pieces=(ir.Slice(signal="vss"),)),
+            ir.Connection(port="d", pieces=(ir.SignalRef(signal="out", range=ir.Range(msb=0, lsb=0)),)),
+            ir.Connection(port="g", pieces=(ir.SignalRef(signal="a"),)),
+            ir.Connection(port="s", pieces=(ir.SignalRef(signal="vss"),)),
+            ir.Connection(port="b", pieces=(ir.SignalRef(signal="vss"),)),
         ),
         params=(ir.ParamValue(name="w", value=num("1e-6")), ir.ParamValue(name="m", value=num("2"))),
     )
@@ -162,18 +162,18 @@ def test_a_small_netlist():
                 name="dut",
                 cell="bank",
                 connections=(
-                    ir.Connection(port="a", pieces=(ir.Slice(signal="a"),)),
+                    ir.Connection(port="a", pieces=(ir.SignalRef(signal="a"),)),
                     # Bus port `out<3:0>`: the whole 2-bit bus `q`, then two bits left open.
-                    ir.Connection(port="out", pieces=(ir.Slice(signal="q"), ir.NoConnect(width=2))),
-                    ir.Connection(port="vss", pieces=(ir.Slice(signal="gnd"),)),
+                    ir.Connection(port="out", pieces=(ir.SignalRef(signal="q"), ir.NoConnect(width=2))),
+                    ir.Connection(port="vss", pieces=(ir.SignalRef(signal="gnd"),)),
                 ),
             ),
             ir.Instance(
                 name="v0",
                 cell="vdc",
                 connections=(
-                    ir.Connection(port="p", pieces=(ir.Slice(signal="a"),)),
-                    ir.Connection(port="n", pieces=(ir.Slice(signal="gnd"),)),
+                    ir.Connection(port="p", pieces=(ir.SignalRef(signal="a"),)),
+                    ir.Connection(port="n", pieces=(ir.SignalRef(signal="gnd"),)),
                 ),
                 params=(ir.ParamValue(name="dc", value=num("0.8")),),
             ),
@@ -181,7 +181,7 @@ def test_a_small_netlist():
     )
     netlist = ir.Netlist(cells=(nch, vdc, bank, tb))
     assert netlist == ir.Netlist(cells=(nch, vdc, dataclasses.replace(bank), tb))
-    assert ir.Slice(signal="q") != ir.Slice(signal="q", range=four)
+    assert ir.SignalRef(signal="q") != ir.SignalRef(signal="q", range=four)
 
 
 @pytest.mark.parametrize(

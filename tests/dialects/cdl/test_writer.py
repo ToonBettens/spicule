@@ -17,8 +17,10 @@ def sig(name: str, msb: int | None = None, lsb: int | None = None) -> ir.Signal:
     return ir.Signal(name=name, range=None if msb is None else ir.Range(msb=msb, lsb=lsb if lsb is not None else msb))
 
 
-def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.Slice:
-    return ir.Slice(signal=name, range=None if msb is None else ir.Range(msb=msb, lsb=lsb if lsb is not None else msb))
+def s(name: str, msb: int | None = None, lsb: int | None = None) -> ir.SignalRef:
+    return ir.SignalRef(
+        signal=name, range=None if msb is None else ir.Range(msb=msb, lsb=lsb if lsb is not None else msb)
+    )
 
 
 def conn(port: str, *pieces: ir.Piece) -> ir.Connection:

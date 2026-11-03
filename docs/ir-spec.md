@@ -55,7 +55,7 @@ External(name, element, ports, params, meta)              defined elsewhere
     signals: Signal(name, range?)                         internal nets only
 Instance(name, cell, connections, params, meta)           cell: the instantiated cell's name
     connections: Connection(port, pieces)
-    pieces:      Slice(signal, range?) | NoConnect(width)
+    pieces:      SignalRef(signal, range?) | NoConnect(width)
     params:      ParamValue(name, value)
 Range(msb, lsb)
 Meta(origin?)                                             annotations, never affect meaning
@@ -139,18 +139,18 @@ An instance's `Connection` gives, for one port of the instantiated cell, a list
 of pieces in expansion order. The pieces' bits, concatenated, meet the port's
 bits first to first. A piece is:
 
-- `Slice(signal, range?)`: bits of a port or internal signal of the containing
-  `Subckt`. No range: the whole signal (scalar or whole bus). With a range:
-  those bits, in either direction (`d<0:3>` of a `d<3:0>` bus). A single bit
-  is written `<5:5>`.
+- `SignalRef(signal, range?)`: bits of a port or internal signal of the
+  containing `Subckt`. No range: the whole signal (scalar or whole bus). With
+  a range: those bits, in either direction (`d<0:3>` of a `d<3:0>` bus). A
+  single bit is written `<5:5>`.
 - `NoConnect(width)`: `width` bits deliberately left open. Writers give each
   bit a unique net.
 
 | Rule | |
 | --- | --- |
 | C-1 | Every port of the instantiated cell is connected exactly once, and every connection names a port of that cell. |
-| C-2 | `Slice.signal` is a port or internal signal of the containing `Subckt`. |
-| C-3 | A `Slice.range` is only set on a bus signal and lies within its declared range. |
+| C-2 | `SignalRef.signal` is a port or internal signal of the containing `Subckt`. |
+| C-3 | A `SignalRef.range` is only set on a bus signal and lies within its declared range. |
 | C-4 | The pieces' widths add up to the port's width (whole scalar: 1, whole bus: its width, range: `abs(msb-lsb)+1`). |
 
 ### 6.3 Canonical form
@@ -158,9 +158,9 @@ bits first to first. A piece is:
 Every connection has exactly one representation. To get it, flatten the pieces
 to bits, then rebuild them left to right, each time taking the longest run:
 
-- Consecutive bits of one bus that step by +1 or -1 throughout form one slice,
-  and a run that is exactly the whole bus in its declared direction is written
-  without range.
+- Consecutive bits of one bus that step by +1 or -1 throughout form one
+  `SignalRef`, and a run that is exactly the whole bus in its declared
+  direction is written without range.
 - A bit of a scalar signal is a piece on its own.
 - Consecutive open bits form one `NoConnect`.
 

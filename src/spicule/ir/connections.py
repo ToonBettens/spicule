@@ -9,7 +9,7 @@ import dataclasses
 from collections.abc import Iterable, Mapping
 from typing import NamedTuple
 
-from spicule.ir.model import Cell, Instance, Netlist, NoConnect, Piece, Range, Signal, Slice, Subckt
+from spicule.ir.model import Cell, Instance, Netlist, NoConnect, Piece, Range, Signal, SignalRef, Subckt
 
 
 class NetBit(NamedTuple):
@@ -33,7 +33,7 @@ def indices(r: Range) -> list[int]:
 
 
 def width(r: Range | None) -> int:
-    """Width of a signal or slice with this range: 1 without range."""
+    """Width of a signal or signal reference with this range: 1 without range."""
     return 1 if r is None else abs(r.msb - r.lsb) + 1
 
 
@@ -51,15 +51,15 @@ def signal_bits(signal: Signal) -> list[NetBit]:
 
 
 def bits(pieces: Iterable[Piece], cell_nets: Mapping[str, Signal]) -> list[Bit]:
-    """Flatten pieces into bits, in expansion order. A slice without range takes the whole declared signal."""
+    """Flatten pieces into bits, in expansion order. A signal reference without range takes the whole declared signal."""
     out: list[Bit] = []
     for piece in pieces:
         match piece:
             case NoConnect(width=w):
                 out.extend([OPEN] * w)
-            case Slice(signal=name, range=Range() as r):
+            case SignalRef(signal=name, range=Range() as r):
                 out.extend(NetBit(name, i) for i in indices(r))
-            case Slice(signal=name):
+            case SignalRef(signal=name):
                 out.extend(signal_bits(cell_nets[name]))
     return out
 
@@ -80,7 +80,7 @@ def canonical_pieces(bit_list: list[Bit], cell_nets: Mapping[str, Signal]) -> tu
             pieces.append(NoConnect(width=j - i))
             i = j
         elif bit.index is None:
-            pieces.append(Slice(signal=bit.signal))
+            pieces.append(SignalRef(signal=bit.signal))
             i += 1
         else:
             run = [bit.index]
@@ -97,15 +97,15 @@ def canonical_pieces(bit_list: list[Bit], cell_nets: Mapping[str, Signal]) -> tu
                     break
                 run.append(nxt.index)
                 j += 1
-            pieces.append(_slice(bit.signal, run, cell_nets[bit.signal]))
+            pieces.append(_signal_ref(bit.signal, run, cell_nets[bit.signal]))
             i = j
     return tuple(pieces)
 
 
-def _slice(name: str, run: list[int], signal: Signal) -> Slice:
+def _signal_ref(name: str, run: list[int], signal: Signal) -> SignalRef:
     r = Range(msb=run[0], lsb=run[-1])
     # A run that is exactly the whole bus, in its declared direction, is written without range.
-    return Slice(signal=name) if r == signal.range else Slice(signal=name, range=r)
+    return SignalRef(signal=name) if r == signal.range else SignalRef(signal=name, range=r)
 
 
 def canonicalize(netlist: Netlist) -> Netlist:
