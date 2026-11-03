@@ -9,6 +9,7 @@ from spicule.ir.expressions import (
     parse_number,
 )
 from spicule.ir.model import (
+    IDENTIFIER,
     Binary,
     Call,
     Cell,
@@ -33,10 +34,12 @@ from spicule.ir.model import (
     Slice,
     Subckt,
     Value,
+    is_identifier,
 )
 from spicule.ir.validator import ValidationError, Violation, check, lint, validate
 
 __all__ = [
+    "IDENTIFIER",
     "Binary",
     "Call",
     "Cell",
@@ -69,6 +72,7 @@ __all__ = [
     "expr",
     "format_expression",
     "format_number",
+    "is_identifier",
     "lint",
     "number",
     "parse_expression",

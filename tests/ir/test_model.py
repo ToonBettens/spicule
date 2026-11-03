@@ -182,3 +182,11 @@ def test_a_small_netlist():
     netlist = ir.Netlist(cells=(nch, vdc, bank, tb))
     assert netlist == ir.Netlist(cells=(nch, vdc, dataclasses.replace(bank), tb))
     assert ir.Slice(signal="q") != ir.Slice(signal="q", range=four)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("a_1", True), ("_x", True), ("1a", False), ("a-b", False), ("", False), ("a\n", False), (3, False)],
+)
+def test_is_identifier(text, expected):
+    assert ir.is_identifier(text) is expected

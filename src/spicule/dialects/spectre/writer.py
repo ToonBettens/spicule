@@ -1,8 +1,20 @@
 """The Spectre writer: a validated netlist as a Spectre netlist."""
 
-from spicule.dialects.common import IDENTIFIER, NetNames, WriterError, cells_to_write, check_ground
+from spicule.dialects.common import NetNames, WriterError, cells_to_write, check_ground
 from spicule.dialects.spectre.syntax import BUILTINS, BUS_FORMAT, CONSTANTS, KEYWORDS, MULTIPLICITY, RESERVED
-from spicule.ir import Element, Expression, External, Instance, Netlist, ParamDecl, ParamValue, Subckt, Value, validate
+from spicule.ir import (
+    Element,
+    Expression,
+    External,
+    Instance,
+    Netlist,
+    ParamDecl,
+    ParamValue,
+    Subckt,
+    Value,
+    is_identifier,
+    validate,
+)
 from spicule.ir.connections import bits, nets, signal_bits
 from spicule.ir.expressions import format_expression, number, param_refs
 
@@ -115,7 +127,7 @@ def _param(param: ParamValue) -> str:
 def _value(value: Value) -> str:
     if isinstance(value, Expression):
         return format_expression(value)
-    if IDENTIFIER.match(value):
+    if is_identifier(value):  # Spectre leaves strings that look like names unquoted (type=dc).
         return value
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'

@@ -6,7 +6,7 @@ The IR holds expressions as trees. Text is how the HDL spells them:
     expr    := term (("+" | "-") term)*
     term    := unary (("*" | "/") unary)*
     unary   := ("+" | "-") unary | atom
-    atom    := NUMBER | NAME | NAME "(" expr ("," expr)* ")" | "(" expr ")"
+    atom    := NUMBER | IDENTIFIER | IDENTIFIER "(" expr ("," expr)* ")" | "(" expr ")"
 """
 
 import re
@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from typing import NoReturn
 
-from spicule.ir.model import Binary, Call, Expr, Expression, Neg, Number, ParamRef
+from spicule.ir.model import IDENTIFIER, Binary, Call, Expr, Expression, Neg, Number, ParamRef
 
 #: Expression functions and their number of arguments.
 FUNCTIONS: dict[str, int] = {
@@ -67,7 +67,7 @@ def format_number(value: Decimal) -> str:
 _TOKEN = re.compile(
     r"\s*(?:"
     r"(?P<number>(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
-    r"|(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
+    rf"|(?P<name>{IDENTIFIER})"
     r"|(?P<op>[-+*/(),])"
     r")"
 )

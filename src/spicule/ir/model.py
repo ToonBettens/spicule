@@ -4,12 +4,23 @@ The rules a valid `Netlist` follows are numbered in docs/ir-spec.md.
 Why the model looks like this is in docs/ir-decisions.md.
 """
 
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
-from typing import Literal
+from typing import Literal, TypeGuard
 
 _model = dataclass(frozen=True, slots=True, kw_only=True)
+
+#: An identifier: the rule for every name (spec section 3), as regex text to build other patterns from.
+IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
+
+_IDENTIFIER = re.compile(IDENTIFIER)
+
+
+def is_identifier(text: object) -> TypeGuard[str]:
+    """Whether `text` is an identifier (spec section 3): a string matching `IDENTIFIER` in full."""
+    return isinstance(text, str) and _IDENTIFIER.fullmatch(text) is not None
 
 
 class Element(Enum):

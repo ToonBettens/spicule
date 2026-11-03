@@ -1,12 +1,7 @@
 """Helpers shared by the writers: errors, which cells to write, and net names per cell."""
 
-import re
-
 from spicule.ir import Cell, Instance, Netlist, Subckt
 from spicule.ir.connections import OPEN, Bit, NetBit, nets, signal_bits
-
-#: An identifier, for deciding whether a string value needs quotes.
-IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class WriterError(ValueError):

@@ -16,7 +16,6 @@ Two groups of rules (spec 1.6), each with one checker class behind one public fu
 Warnings don't make a netlist invalid.
 """
 
-import re
 import weakref
 from dataclasses import dataclass, fields
 from decimal import Decimal
@@ -27,6 +26,7 @@ from typing import Any, Literal, get_args, get_origin, get_type_hints
 from spicule.ir.connections import OPEN, NetBit, bits, canonical_pieces, nets, signal_bits, width
 from spicule.ir.expressions import FUNCTIONS, param_refs
 from spicule.ir.model import (
+    IDENTIFIER,
     MODEL_CLASSES,
     Call,
     Cell,
@@ -47,10 +47,8 @@ from spicule.ir.model import (
     Slice,
     Subckt,
     Value,
+    is_identifier,
 )
-
-#: Identifiers (spec section 3).
-NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -209,8 +207,8 @@ class _FieldChecker(_Checker):
     def check_value(self, obj: Any, name: str, value: Any, where: str, cell: str | None, instance: str | None) -> None:
         """F-2, F-3, F-4, F-7 and the function part of F-6, on a value that already has the right type."""
         cls = type(obj)
-        if (cls, name) in _NAMES and not NAME_PATTERN.match(value):
-            self.add("F-2", where, f"{value!r} is not an identifier ([A-Za-z_][A-Za-z0-9_]*)", cell, instance)
+        if (cls, name) in _NAMES and not is_identifier(value):
+            self.add("F-2", where, f"{value!r} is not an identifier ({IDENTIFIER})", cell, instance)
         elif cls is Range and value < 0:
             self.add("F-3", where, f"range index {value} is negative", cell, instance)
         elif cls is NoConnect and value < 1:
