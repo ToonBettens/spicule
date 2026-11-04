@@ -71,12 +71,32 @@ def test_errors_point_at_the_caller():
     assert error.value.sources[0].file == __file__
 
 
-def test_buses_are_not_iterable():
+def test_a_bus_unpacks_into_its_bits():
+    d = h.Signal(msb=3, lsb=0)
+    assert [bit.range for bit in d] == [ir.Range(msb=i, lsb=i) for i in (3, 2, 1, 0)]
+    assert [bit.range for bit in d[0:2]] == [ir.Range(msb=i, lsb=i) for i in (0, 1, 2)]
+    with pytest.raises(h.HdlError, match="can't be iterated"):
+        list(h.Signal())
+    with pytest.raises(h.HdlError, match="can't be iterated"):
+        list(h.NoConn(2))
+    with pytest.raises(h.HdlError, match="can't be iterated"):
+        list(h.Concat(d[3], d[2]))
+
+
+def test_several_nets_at_once():
+    a, y = h.Ports(2)
+    assert isinstance(a, h.Port) and a is not y
+    d, q = h.Signals(2, width=4)
+    assert isinstance(q, h.Signal) and (d.width, q.width) == (4, 4)
+    for bad in (0, True, "2"):
+        with pytest.raises(h.HdlError, match="number of nets"):
+            h.Ports(bad)  # ty: ignore[invalid-argument-type]
+
+
+def test_nested_tuples_concatenate():
+    a = h.Signal()
     d = h.Signal(width=4)
-    with pytest.raises(h.HdlError, match="can't be iterated"):
-        list(d)
-    with pytest.raises(h.HdlError, match="can't be iterated"):
-        list(d[3:2])
+    assert h.Concat(a, (d[3:2], a)).width == 4
 
 
 def test_a_slice_checks_itself():

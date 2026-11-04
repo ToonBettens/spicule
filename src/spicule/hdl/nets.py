@@ -8,9 +8,13 @@ indices, inclusive on both ends and in the order written. It is not a Python lis
     d[7:6]                      # d<7:6>, two bits
     d[4:7]                      # d<4:7>, four bits, reversed
     d[7:]  d[-1]  d[7:4:2]      # errors: no open ends, negative indices or steps
-    h.Concat(a, d[5:4])         # a's bits, then d<5>, d<4>
+    *d                          # d<7>, d<6>, d<5>, d<4>: a bus unpacks into its bits
+    h.Concat(a, d[5:4])         # a's bits, then d<5>, d<4>. In a connection also (a, d[5:4])
     h.NoConn()                  # bits left open on purpose
+    a, y = h.Ports(2)           # several nets at once
 """
+
+from collections.abc import Iterator
 
 from spicule import ir
 from spicule.hdl.source import HdlError, Source, caller, check_identifier
@@ -34,8 +38,8 @@ class Connectable:
         """This connection as IR pieces, on a port of `port_width` bits."""
         raise NotImplementedError
 
-    def __iter__(self):
-        raise HdlError(f"{self!r} can't be iterated; index its bits instead: d[3], d[7:4]", caller())
+    def __iter__(self) -> Iterator[Slice]:
+        raise HdlError(f"{self!r} can't be iterated; only a bus unpacks into its bits", caller())
 
 
 def _check_index(i: object, what: str, source: Source | None) -> int:
@@ -130,6 +134,11 @@ class Net(Connectable):
     def __getitem__(self, key: int | slice) -> Slice:
         return Slice(self, *_msb_lsb(str(self), key, caller()))
 
+    def __iter__(self) -> Iterator[Slice]:
+        if self.range is None:
+            return super().__iter__()
+        return iter([Slice(self, i, i) for i in ir.connections.indices(self.range)])
+
     def __repr__(self) -> str:
         bus = "" if self.range is None else f"<{self.range.msb}:{self.range.lsb}>"
         return f"{type(self).__name__}({self.name or '?'}{bus})"
@@ -144,6 +153,24 @@ class Port(Net):
 
 class Signal(Net):
     """An internal net of a subckt, declared like a `Port`."""
+
+
+def Ports(count: int, *, width: int | None = None, msb: int | None = None, lsb: int | None = None) -> tuple[Port, ...]:
+    """`count` new ports, all of one shape: `a, y = h.Ports(2)`, `d, q = h.Ports(2, width=4)`."""
+    return tuple(Port(width=width, msb=msb, lsb=lsb) for _ in range(_check_count(count)))
+
+
+def Signals(
+    count: int, *, width: int | None = None, msb: int | None = None, lsb: int | None = None
+) -> tuple[Signal, ...]:
+    """`count` new signals, all of one shape: `a, y = h.Signals(2)`, `d, q = h.Signals(2, width=4)`."""
+    return tuple(Signal(width=width, msb=msb, lsb=lsb) for _ in range(_check_count(count)))
+
+
+def _check_count(count: object) -> int:
+    if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        raise HdlError(f"the number of nets must be an int >= 1, got {count!r}", caller())
+    return count
 
 
 class NoConn(Connectable):
@@ -188,6 +215,9 @@ class Slice(Connectable):
         inner = _check_bits(repr(self), self.range, *_msb_lsb(repr(self), key, source), source)
         return Slice(self.net, inner.msb, inner.lsb)
 
+    def __iter__(self) -> Iterator[Slice]:
+        return iter([Slice(self.net, i, i) for i in ir.connections.indices(self.range)])
+
     def to_ir(self, port_width: int) -> tuple[ir.Piece, ...]:
         assert self.net.name is not None
         return (ir.SignalRef(signal=self.net.name, range=self.range),)
@@ -197,13 +227,18 @@ class Slice(Connectable):
 
 
 class Concat(Connectable):
-    """Parts in expansion order, as written: `h.Concat(a, b[3:2], h.NoConn(2))`."""
+    """
+    Parts in expansion order, as written: `h.Concat(a, b[3:2], h.NoConn(2))`. A tuple is a concatenation too, in a
+    connection or as a part: `x=(a, b[3:2], h.NoConn(2))`.
+    """
 
-    def __init__(self, *parts: Connectable):
+    def __init__(self, *parts: Connectable | tuple):
         self.source = caller()
         flat: list[Connectable] = []
         total = 0
         for part in parts:
+            if isinstance(part, tuple):
+                part = Concat(*part)
             if not isinstance(part, Connectable):
                 raise HdlError(f"Concat part {part!r} is not connectable", self.source)
             width = part.width

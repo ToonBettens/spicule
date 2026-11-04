@@ -111,11 +111,11 @@ class ParamExpr:
 
 class Param(ParamExpr):
     """
-    A netlist parameter of a subckt: a number with a default, `h.Param(default=1e3)`. No instance has to set it. The
+    A netlist parameter of a subckt: a number with a default, `h.Param(1e3)`. No instance has to set it. The
     default may use parameters declared before it. A parameter is also the smallest expression: itself, as a leaf.
     """
 
-    def __init__(self, *, default: Any):
+    def __init__(self, default: Any):
         super().__init__(self)
         self.source = caller()
         self.name: str | None = None

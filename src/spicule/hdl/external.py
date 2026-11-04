@@ -1,12 +1,11 @@
 """External cells: PDK devices, foreign subcircuits and simulator built-ins.
 
 An external cell is defined elsewhere, so it declares only its name, how a netlist calls it (`element`) and its ports,
-in order. A PDK package is a list of these::
+in order: as one string, or as a list of strings and `h.Port(name=...)`. A PDK package is a list of these::
 
-    nch = h.External(
-        "nch", element=h.MOS, ports=[h.Port(name="d"), h.Port(name="g"), h.Port(name="s"), h.Port(name="b")]
-    )
-    sram = h.External("sram", element=h.SUBCKT, ports=[h.Port(name="addr", width=6), h.Port(name="clk")])
+    nch = h.External("nch", h.MOS, "d g s b")
+    sram = h.External("sram", h.SUBCKT, "addr[5:0] clk")
+    bits = h.External("bits", h.SUBCKT, [f"d{i}" for i in range(4)])
 
     mn = nch(l=16e-9, nfin=4)(d=y, g=a, s=vss, b=vss)
 
@@ -15,6 +14,7 @@ declared and any may be set. A `str` is a text value, anything else a number. Si
 `spicule.hdl.builtins`.
 """
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -34,10 +34,25 @@ INDUCTOR = ir.Element.INDUCTOR
 BUILTIN = ir.Element.BUILTIN
 
 
+_PORT = re.compile(rf"({ir.IDENTIFIER})(?:\[([0-9]+):([0-9]+)\])?")
+
+
+def _parse_ports(text: str, source: Source | None) -> list[Port]:
+    """Ports from their names, a bus with its range: `addr[5:0] clk vdd vss`."""
+    ports = []
+    for word in text.split():
+        match = _PORT.fullmatch(word)
+        if match is None:
+            raise HdlError(f"port {word!r}: write a name, or a bus as name[msb:lsb]", source)
+        name, msb, lsb = match.groups()
+        ports.append(Port(name=name) if msb is None else Port(name=name, msb=int(msb), lsb=int(lsb)))
+    return ports
+
+
 class External(CellInfo):
     """A cell defined elsewhere. See `spicule.hdl.external`."""
 
-    def __init__(self, name: str, *, element: ir.Element, ports: Sequence[Port] = ()):
+    def __init__(self, name: str, element: ir.Element, ports: str | Sequence[str | Port] = ()):
         self.source = caller()
         self.name = check_identifier(name, "cell name", self.source)
         if not isinstance(element, ir.Element):
@@ -45,9 +60,11 @@ class External(CellInfo):
         self.element = element
         self.params: dict[str, Param] = {}
         self.ports: dict[str, Port] = {}
-        for port in ports:
+        items = [ports] if isinstance(ports, str) else ports
+        parsed = [p for item in items for p in (_parse_ports(item, self.source) if isinstance(item, str) else [item])]
+        for port in parsed:
             if not isinstance(port, Port) or port.name is None:
-                raise HdlError(f"ports of an external cell are h.Port(name=...), got {port!r}", self.source)
+                raise HdlError(f"ports of an external cell are strings or h.Port(name=...), got {port!r}", self.source)
             if port.name in self.ports:
                 raise HdlError(f"external cell {name}: duplicate port {port.name!r}", self.source)
             port.__set_name__(self, port.name)

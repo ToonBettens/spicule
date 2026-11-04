@@ -7,21 +7,22 @@ A subckt is a class deriving from `h.Subckt`, and the class name is the cell nam
         vss = h.Port()
         a = h.Port()
         y = h.Port()
-        nfin = h.Param(default=2)
+        nfin = h.Param(2)
         mp = pch(nfin=2 * nfin)(d=y, g=a, s=vdd, b=vdd)
         mn = nch(nfin=nfin)(d=y, g=a, s=vss, b=vss)
 
 Public names in the class body must be ports, signals, parameters or instances. Helpers start with `_`.
 
 Every cell is instantiated with two calls, parameters first and then connections, so a port and a parameter may share
-a name::
+a name. Connections go by keyword, or by position in the cell's port order::
 
     dut = Inv(nfin=4)(vdd=vdd, vss=gnd, a=a, y=y)
+    buf = Inv()(vdd, gnd, y, z)
 """
 
 from typing import Any
 
-from spicule.hdl.nets import Connectable, Port, Signal
+from spicule.hdl.nets import Concat, Connectable, Port, Signal
 from spicule.hdl.params import HdlValue, Param, as_number
 from spicule.hdl.source import HdlError, Source, caller, check_identifier
 
@@ -40,25 +41,96 @@ class CellInfo:
         """Check and convert the parameter values of an instance."""
         raise NotImplementedError
 
-    def __call__(self, **params: Any) -> CellCall:
+    def __call__(self, /, **params: Any) -> CellCall:
         return CellCall(self, self.check_params(params, caller()))
 
 
 class CellCall:
-    """A cell with parameter values, made by calling a cell. Calling it with connections gives an `Instance`."""
+    """
+    A cell with parameter values, made by calling a cell. Calling it with connections gives an `Instance`, and it can
+    be called any number of times. `params` and `preset` give a new `CellCall` with more filled in, so a template
+    shared between instances never changes::
 
-    def __init__(self, cell: CellInfo, params: dict[str, HdlValue]):
+        _p = pch(l=16e-9).preset(b=vdd)
+        mp0 = _p(d=y, g=a, s=vdd)
+        mp1 = _p.params(nfin=4)(d=y, g=b, s=vdd)
+    """
+
+    def __init__(self, cell: CellInfo, values: dict[str, HdlValue], presets: _Connections | None = None):
         self.source = caller()
         self.cell = cell
-        self.params = params
+        self.values = values
+        self.presets = presets or {}
 
-    def __call__(self, **conns: Any) -> Instance:
-        inst = Instance(self.cell, self.params)
-        inst.connect(**conns)
-        return inst
+    def params(self, **values: Any) -> CellCall:
+        """A new `CellCall` with these parameter values added. A value that was already set is overridden."""
+        return CellCall(self.cell, self.values | self.cell.check_params(values, caller()), self.presets)
+
+    def preset(self, **conns: Any) -> CellCall:
+        """A new `CellCall` with these ports already connected. They can't be connected again."""
+        return CellCall(self.cell, self.values, _connect(self.cell, self.presets, conns, caller()))
+
+    def __call__(self, /, *conns: Any, **named: Any) -> Instance:
+        """
+        The instance, with these ports connected: by keyword, or by position in the cell's port order, mixable with
+        keywords. A call that connects by position connects every port, and can't follow a preset.
+        """
+        source = caller()
+        targets = {**_by_position(self.cell, self.presets, conns, named, source), **named}
+        return Instance(self.cell, self.values, _connect(self.cell, self.presets, targets, source))
 
     def __repr__(self) -> str:
         return f"CellCall({self.cell.name})"
+
+
+# Connected ports: the port name, what it connects to, and the line that connected it.
+type _Connections = dict[str, tuple[Connectable, Source | None]]
+
+
+def _connect(cell: CellInfo, done: _Connections, targets: dict[str, Any], source: Source | None) -> _Connections:
+    """`done` plus these connections, if the cell has those ports, they are still free and the widths fit."""
+    connected = dict(done)
+    for port_name, target in targets.items():
+        port = cell.ports.get(port_name)
+        if port is None:
+            hint = "; parameters go in the first call: cell(params)(ports)" if port_name in cell.params else ""
+            known = ", ".join(cell.ports) or "none"
+            raise HdlError(f"{cell.name} has no port {port_name!r} (ports: {known}){hint}", source)
+        if port_name in connected:
+            raise HdlError(f"port {port_name!r} is already connected", source, connected[port_name][1])
+        conn = Concat(*target) if isinstance(target, tuple) else target
+        if not isinstance(conn, Connectable):
+            raise HdlError(f"port {port_name!r} of {cell.name} can't be connected to {conn!r}", source)
+        if conn.width is not None and conn.width != port.width:
+            raise HdlError(
+                f"port {port_name!r} of {cell.name} is {port.width} bit(s) wide, the connection is {conn.width}",
+                source,
+            )
+        connected[port_name] = (conn, source)
+    return connected
+
+
+def _by_position(
+    cell: CellInfo, done: _Connections, conns: tuple, named: dict[str, Any], source: Source | None
+) -> dict[str, Any]:
+    """Positional connections by their port name, if together with `named` they connect every port."""
+    if not conns:
+        return {}
+    ports = list(cell.ports)
+    if done:
+        raise HdlError(f"{cell.name}: connections by position need all ports free; use keywords here", source)
+    if len(conns) > len(ports):
+        raise HdlError(f"{cell.name} has {len(ports)} port(s) ({', '.join(ports)}), got {len(conns)}", source)
+    by_position = dict(zip(ports, conns, strict=False))
+    twice = [name for name in named if name in by_position]
+    if twice:
+        raise HdlError(f"{cell.name}: port {twice[0]!r} is connected by position and by keyword", source)
+    missing = [name for name in ports if name not in by_position and name not in named]
+    if missing:
+        raise HdlError(
+            f"{cell.name}: connections by position connect every port; missing: {', '.join(missing)}", source
+        )
+    return by_position
 
 
 class Instance:
@@ -67,11 +139,11 @@ class Instance:
     become attributes later.
     """
 
-    def __init__(self, cell: CellInfo, params: dict[str, HdlValue]):
+    def __init__(self, cell: CellInfo, params: dict[str, HdlValue], conns: _Connections):
         self._source = caller()
         self._cell = cell
         self._params = dict(params)
-        self._conns: dict[str, tuple[Connectable, Source | None]] = {}
+        self._conns = conns
         self._name: str | None = None
         self._parent: object | None = None
 
@@ -82,31 +154,6 @@ class Instance:
             raise HdlError(f"instance {self._name!r} can't also be named {name!r}; create a new one", self._source)
         self._name = check_identifier(name, "instance name", self._source)
         self._parent = owner
-
-    def connect(self, **conns: Any) -> Instance:
-        """Connect ports by keyword. Returns the instance."""
-        source = caller()
-        for port_name, target in conns.items():
-            self._connect(port_name, target, source)
-        return self
-
-    def _connect(self, port_name: str, target: Any, source: Source | None) -> None:
-        cell = self._cell
-        port = cell.ports.get(port_name)
-        if port is None:
-            hint = "; parameters go in the first call: cell(params)(ports)" if port_name in cell.params else ""
-            known = ", ".join(cell.ports) or "none"
-            raise HdlError(f"{cell.name} has no port {port_name!r} (ports: {known}){hint}", source)
-        if port_name in self._conns:
-            raise HdlError(f"port {port_name!r} is already connected", source, self._conns[port_name][1])
-        if not isinstance(target, Connectable):
-            raise HdlError(f"port {port_name!r} of {cell.name} can't be connected to {target!r}", source)
-        if target.width is not None and target.width != port.width:
-            raise HdlError(
-                f"port {port_name!r} of {cell.name} is {port.width} bit(s) wide, the connection is {target.width}",
-                source,
-            )
-        self._conns[port_name] = (target, source)
 
     def __repr__(self) -> str:
         return f"Instance({self._name or '?'} of {self._cell.name})"
@@ -210,7 +257,7 @@ class SubcktMeta(type):
     def __delattr__(cls, name: str) -> None:
         raise HdlError(f"attributes can't be removed from subckt {cls.__name__}", caller())
 
-    def __call__(cls, **params: Any) -> CellCall:
+    def __call__(cls, /, **params: Any) -> CellCall:
         if "__hdl__" not in cls.__dict__:
             raise HdlError("h.Subckt itself can't be instantiated; derive a subckt from it", caller())
         return cls.__hdl__(**params)

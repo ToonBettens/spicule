@@ -96,3 +96,7 @@ def test_declaration_to_ir():
 def test_every_parameter_has_a_default():
     with pytest.raises(TypeError, match="default"):
         h.Param()  # ty: ignore[missing-argument]
+
+
+def test_default_by_position():
+    assert text(h.Param(2).default) == "2"

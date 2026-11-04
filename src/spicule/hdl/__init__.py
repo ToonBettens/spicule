@@ -18,7 +18,7 @@ from spicule.hdl.external import (
     SUBCKT,
     External,
 )
-from spicule.hdl.nets import Concat, Connectable, NoConn, Port, Signal, Slice
+from spicule.hdl.nets import Concat, Connectable, NoConn, Port, Ports, Signal, Signals, Slice
 from spicule.hdl.params import Param, ParamExpr, fn
 from spicule.hdl.source import HdlError, HdlWarning, Source
 from spicule.hdl.subckt import CellCall, Instance, Subckt, SubcktInfo, info, new_subckt
@@ -43,7 +43,9 @@ __all__ = [
     "Param",
     "ParamExpr",
     "Port",
+    "Ports",
     "Signal",
+    "Signals",
     "Slice",
     "Source",
     "Subckt",
