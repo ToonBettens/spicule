@@ -169,7 +169,8 @@ to bits, then rebuild them left to right, each time taking the longest run:
 | --- | --- |
 | C-5 | Pieces are in canonical form. |
 
-`canonicalize()` implements it, and every producer calls it. Example: with
+`canonical_pieces()` implements it for one connection, and every producer calls
+it. `canonicalize()` does it for a whole netlist. Example: with
 `d<7:0>` declared, bits `d<3> d<2> d<5> d<6> NC NC` are the pieces `d<3:2>`,
 `d<5:6>`, `NoConnect(2)`.
 
@@ -216,7 +217,8 @@ from its value, and the simulator checks it.
 
 ### 7.2 Expressions
 
-An `Expression` holds a tree. Text is only how JSON and the HDL spell it. Nodes:
+An `Expression` holds a tree. Text is only how writers print it and readers
+read it. Nodes:
 `Number(value)`, `ParamRef(name)`, `Neg(operand)` (negation),
 `Binary(op, left, right)` with `op` one of `+ - * /`, and `Call(function, args)`.
 Power is the function `pow(x, y)`, not an operator. The text grammar:

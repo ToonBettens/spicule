@@ -1,4 +1,4 @@
-"""CDL (Calibre SPICE) based on Calibre Verification User's Manual v2023.1."""
+"""The CDL dialect (Calibre SPICE), based on the Calibre Verification User's Manual v2023.1."""
 
 from spicule.dialects.cdl.writer import write
 

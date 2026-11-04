@@ -3,6 +3,7 @@
 from spicule.dialects.cdl.syntax import BUILTINS, BUS_FORMAT, FUNCTIONS, LETTERS
 from spicule.dialects.common import NetNames, WriterError, cells_to_write, check_ground
 from spicule.ir import (
+    Cell,
     Element,
     Expression,
     External,
@@ -15,7 +16,6 @@ from spicule.ir import (
     Value,
     validate,
 )
-from spicule.ir.connections import bits, nets, signal_bits
 from spicule.ir.expressions import format_expression
 
 
@@ -64,7 +64,7 @@ def write(
     return "\n".join(lines)
 
 
-def _letter(target: Subckt | External) -> str:
+def _letter(target: Cell) -> str:
     if isinstance(target, Subckt):
         return "X"
     if target.element is Element.BUILTIN:
@@ -72,7 +72,7 @@ def _letter(target: Subckt | External) -> str:
     return LETTERS[target.element]
 
 
-def _check(written: list[Subckt], by_name: dict, lvs: bool) -> None:
+def _check(written: list[Subckt], by_name: dict[str, Cell], lvs: bool) -> None:
     """Writer checks: built-ins, and names that differ only in case (Calibre folds case)."""
     _unique_folded("cell", [c.name for c in by_name.values()], None)
     for cell in written:
@@ -95,30 +95,26 @@ def _unique_folded(what: str, names: list[str], cell: str | None) -> None:
     seen: dict[str, str] = {}
     for name in names:
         other = seen.setdefault(name.lower(), name)
-        if other != name or names.count(name) > 1:
+        if other != name:
             where = f"cell {cell!r}: " if cell else ""
             raise WriterError(f"{where}{what} names {other!r} and {name!r} are the same to Calibre (case-insensitive)")
 
 
-def _subckt(cell: Subckt, by_name: dict, bus_format: str, origins: bool) -> list[str]:
+def _subckt(cell: Subckt, by_name: dict[str, Cell], bus_format: str, origins: bool) -> list[str]:
     names = NetNames(cell, bus_format)
-    pins = [names.names[bit] for port in cell.ports for bit in signal_bits(port)]
     params = "".join(f" {_decl(decl)}" for decl in cell.params)
     lines = []
     if origins and cell.meta.origin:
         lines.append(f"* origin: {cell.meta.origin}")
-    lines.append(f".SUBCKT {cell.name} {' '.join(pins)}{params}".rstrip())
+    lines.append(f".SUBCKT {cell.name} {' '.join(names.pins())}{params}".rstrip())
     for inst in cell.instances:
         lines += _instance(inst, by_name, names, origins)
     lines.append(f".ENDS {cell.name}")
     return lines
 
 
-def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool) -> list[str]:
+def _instance(inst: Instance, by_name: dict[str, Cell], names: NetNames, origins: bool) -> list[str]:
     target = by_name[inst.cell]
-    cell_nets = nets(names.cell)
-    pieces = {conn.port: conn.pieces for conn in inst.connections}
-    nodes = [name for port in target.ports for name in names.of(bits(pieces[port.name], cell_nets), inst)]
     letter = _letter(target)
     if isinstance(target, External) and target.element is Element.BUILTIN:
         # Ideal element: its value in place of a model name.
@@ -134,7 +130,7 @@ def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool) -> 
     lines = []
     if origins and inst.meta.origin:
         lines.append(f"* origin: {inst.meta.origin}")
-    lines.append(f"{letter}{inst.name} {' '.join(nodes)} {master}{rest}")
+    lines.append(f"{letter}{inst.name} {' '.join(names.nodes(inst, target))} {master}{rest}")
     return lines
 
 

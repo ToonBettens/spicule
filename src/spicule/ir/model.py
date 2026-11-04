@@ -83,6 +83,8 @@ class ParamValue:
 
 @_model
 class Range:
+    """A bus range: `msb` is the left index and `lsb` the right one, either may be larger. Expands left to right."""
+
     msb: int
     lsb: int
 
@@ -109,6 +111,8 @@ Piece = SignalRef | NoConnect
 
 @_model
 class Connection:
+    """What one port of an instance connects to: pieces in canonical form, first piece to the port's first bit."""
+
     port: str
     pieces: tuple[Piece, ...]
 
@@ -153,6 +157,8 @@ class Element(Enum):
 
 @_model
 class External:
+    """A cell defined elsewhere: `element` says how a netlist calls it. Its parameters are open, so not declared."""
+
     name: str
     element: Element
     ports: tuple[Signal, ...] = ()
@@ -168,6 +174,8 @@ Cell = Subckt | External
 # A weakref slot lets the validator remember which netlist objects already passed (spicule.ir.validator).
 @dataclass(frozen=True, slots=True, kw_only=True, weakref_slot=True)
 class Netlist:
+    """One or more top cells and every cell they use, each once, leaves first. Names are unique and final."""
+
     cells: tuple[Cell, ...] = ()
 
 

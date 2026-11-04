@@ -27,6 +27,6 @@ RESERVED = frozenset(["freq", "scalem", "temp", "temper", "time", "tnom"])
 #: Spectre's implicit subcircuit multiplicity.
 MULTIPLICITY = "m"
 
-#: The built-in elements the writer knows, by Spectre's own names. Their declarations (ports, parameters) live with
-#: the HDL; a netlist carries them as `External` cells with `element=builtin`.
+#: The built-in elements the writer knows, by Spectre's own names. The HDL declares them (`spicule.hdl.builtins`), and
+#: a netlist carries them as `External` cells with `element=builtin`.
 BUILTINS = frozenset(["resistor", "capacitor", "inductor", "vsource", "isource", "vcvs", "vccs", "ccvs", "cccs"])

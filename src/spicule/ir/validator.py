@@ -1,6 +1,6 @@
-"""The validator: checks a `Netlist`.
+"""The validator: checks a `Netlist` against the rules of docs/ir-spec.md.
 
-Two groups of rules (docs/ir-spec.md)., each with one checker class behind one public function:
+Two groups of rules, each with one checker class behind one public function:
 
 | Rules            | Spec        | Checked by                                   |
 | ---------------- | ----------- | -------------------------------------------- |
@@ -75,9 +75,8 @@ class ValidationError(ValueError):
         super().__init__(f"invalid netlist, {len(violations)} violation(s):\n{lines}")
 
 
-# Identities of the netlist objects that passed `validate`. A netlist is
-# immutable, so it stays valid. An entry is #: dropped when its netlist is
-# garbage-collected, before its id can be reused.
+# Identities of the netlist objects that passed `validate`. A netlist is immutable, so it stays valid. An entry is
+# dropped when its netlist is garbage-collected, before its id can be reused.
 _validated: set[int] = set()
 
 
@@ -109,7 +108,7 @@ def check_fields(obj: Any) -> list[Violation]:
 
 
 def check_semantics(netlist: Netlist) -> list[Violation]:
-    """Semantic-rule violations (N, D) of a `Netlist` that passes every field rule."""
+    """Semantic-rule violations (N, D, C, A) of a `Netlist` that passes every field rule."""
     return _SemanticChecker(netlist).run()
 
 
@@ -123,7 +122,7 @@ class _Checker:
         self.violations.append(Violation(rule=rule, where=where, message=message, cell=cell, instance=instance))
 
 
-# Field rules (spec section 9)
+# --- Field rules (spec section 9) ---
 
 
 #: Fields that hold an identifier (F-2).
@@ -225,12 +224,14 @@ class _FieldChecker(_Checker):
                 self.add("F-6", where, f"{value}() takes {arity} argument(s), got {len(obj.args)}", cell, instance)
 
 
-# Semantic rules
+# --- Semantic rules ---
 
 
 class _SemanticChecker(_Checker):
-    """N-1 to N-4 (names), D-1, D-2 (references), C-1 to C-5 (connections) and A-1 to A-5 (parameters), on a
-    netlist that passes every field rule."""
+    """
+    N-1 to N-4 (names), D-1, D-2 (references), C-1 to C-5 (connections) and A-1 to A-5 (parameters), on a netlist that
+    passes every field rule.
+    """
 
     def __init__(self, netlist: Netlist):
         super().__init__()
@@ -322,21 +323,23 @@ class _SemanticChecker(_Checker):
                     "C-2", where, f"{piece.signal!r} is not a port or signal of {cell.name!r}", cell.name, inst.name
                 )
                 sound = False
-            elif piece.range is not None and signal.range is None:
+            elif piece.range is None:
+                continue
+            elif signal.range is None:
                 self.add("C-3", where, f"{piece.signal!r} is a scalar, so it takes no range", cell.name, inst.name)
                 sound = False
-            elif piece.range is not None and not _within(piece.range, signal.range):
+            elif not _within(piece.range, signal.range):
                 message = f"{_fmt_piece(piece)} lies outside the declared {_fmt_range(piece.signal, signal.range)}"
                 self.add("C-3", where, message, cell.name, inst.name)
                 sound = False
         if not sound:
             return
-        total = sum(_piece_width(piece, cell_nets) for piece in pieces)
-        if total != width(port.range):
-            message = f"connects {total} bit(s), but port {port.name!r} has {width(port.range)}"
+        connected = bits(pieces, cell_nets)
+        if len(connected) != width(port.range):
+            message = f"connects {len(connected)} bit(s), but port {port.name!r} has {width(port.range)}"
             self.add("C-4", where, message, cell.name, inst.name)
             return
-        canonical = canonical_pieces(bits(pieces, cell_nets), cell_nets)
+        canonical = canonical_pieces(connected, cell_nets)
         if canonical != pieces:
             message = f"pieces are not canonical: write {', '.join(_fmt_piece(p) for p in canonical)}"
             self.add("C-5", where, message, cell.name, inst.name)
@@ -405,17 +408,9 @@ def _nets(cell: Cell) -> tuple[Signal, ...]:
     return cell.ports + cell.signals if isinstance(cell, Subckt) else cell.ports
 
 
-def _within(r: Range, declared: Range | None) -> bool:
-    if declared is None:
-        return False
+def _within(r: Range, declared: Range) -> bool:
     low, high = sorted((declared.msb, declared.lsb))
     return low <= r.msb <= high and low <= r.lsb <= high
-
-
-def _piece_width(piece: Piece, cell_nets: dict[str, Signal]) -> int:
-    if isinstance(piece, NoConnect):
-        return piece.width
-    return width(piece.range if piece.range is not None else cell_nets[piece.signal].range)
 
 
 def _fmt_range(name: str, r: Range | None) -> str:
@@ -432,7 +427,7 @@ def _fmt_bit(bit: NetBit) -> str:
     return bit.signal if bit.index is None else f"{bit.signal}<{bit.index}>"
 
 
-# Warnings (spec 6.4)
+# --- Warnings (spec 6.4) ---
 
 
 def lint(netlist: Netlist) -> list[Violation]:

@@ -110,8 +110,8 @@ def test_origins_relative_to_the_project():
 
 
 def test_origins_with_root():
-    netlist = h.elaborate(Tb, root=Path(__file__).parents[3])
-    assert netlist.cells[-1].meta.origin == f"spicule/{HERE}:{line_of(Tb)}"
+    netlist = h.elaborate(Tb, root=Path(__file__).parents[1])
+    assert netlist.cells[-1].meta.origin == f"{Path(HERE).relative_to('tests').as_posix()}:{line_of(Tb)}"
 
 
 def test_the_netlist_is_validated():

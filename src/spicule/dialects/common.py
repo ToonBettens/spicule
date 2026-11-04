@@ -1,7 +1,7 @@
 """Helpers shared by the writers: errors, which cells to write, and net names per cell."""
 
 from spicule.ir import Cell, Instance, Netlist, Subckt
-from spicule.ir.connections import OPEN, Bit, NetBit, nets, signal_bits
+from spicule.ir.connections import OPEN, NetBit, bits, nets, signal_bits
 
 
 class WriterError(ValueError):
@@ -13,9 +13,9 @@ def cells_to_write(netlist: Netlist, top: str | None) -> tuple[list[Subckt], Sub
     The subcircuits to define, leaves first, and the top cell. Without `top`: every `Subckt`, no top. With `top`:
     the `Subckt`s below it, and the top cell itself, whose contents go at the top level.
     """
-    by_name: dict[str, Cell] = {cell.name: cell for cell in netlist.cells}
     if top is None:
         return [cell for cell in netlist.cells if isinstance(cell, Subckt)], None
+    by_name: dict[str, Cell] = {cell.name: cell for cell in netlist.cells}
     top_cell = by_name.get(top)
     if not isinstance(top_cell, Subckt):
         raise WriterError(f"top {top!r} is not a subcircuit of the netlist")
@@ -51,13 +51,14 @@ class NetNames:
         self.bus_format = bus_format
         self.ground = ground
         self.names: dict[NetBit, str] = {}
+        self.used: set[str] = set()
         for signal in nets(cell).values():
             for bit in signal_bits(signal):
                 name = self.spell(bit)
-                if name in self.names.values():
+                if name in self.used:
                     raise WriterError(f"cell {cell.name!r}: two nets are both spelled {name!r} with {bus_format!r}")
                 self.names[bit] = name
-        self.used = set(self.names.values())
+                self.used.add(name)
 
     def spell(self, bit: NetBit) -> str:
         if self.ground is not None and bit == NetBit(self.ground, None):
@@ -66,14 +67,18 @@ class NetNames:
             return bit.signal
         return self.bus_format.format(name=bit.signal, index=bit.index)
 
-    def of(self, bits: list[Bit], inst: Instance) -> list[str]:
-        """Names for the bits of one connection of `inst`. Each open bit gets a fresh net."""
+    def pins(self) -> list[str]:
+        """The names of the cell's port bits, in pin order."""
+        return [self.names[bit] for port in self.cell.ports for bit in signal_bits(port)]
+
+    def nodes(self, inst: Instance, target: Cell) -> list[str]:
+        """The names `inst` connects to, in the pin order of `target`. Each open bit gets a fresh net."""
+        cell_nets = nets(self.cell)
+        pieces = {conn.port: conn.pieces for conn in inst.connections}
         out = []
-        for bit in bits:
-            if bit is OPEN:
-                out.append(self.fresh(f"nc_{inst.name}_"))
-            else:
-                out.append(self.names[bit])
+        for port in target.ports:
+            for bit in bits(pieces[port.name], cell_nets):
+                out.append(self.fresh(f"nc_{inst.name}_") if bit is OPEN else self.names[bit])
         return out
 
     def fresh(self, prefix: str) -> str:

@@ -1,3 +1,8 @@
+"""The IR: a circuit as frozen dataclasses, its validator and its text forms. Depends on nothing else in spicule.
+
+The rules are in docs/ir-spec.md, and why the model looks like this in docs/ir-decisions.md.
+"""
+
 from spicule.ir import connections
 from spicule.ir.connections import canonicalize
 from spicule.ir.expressions import (

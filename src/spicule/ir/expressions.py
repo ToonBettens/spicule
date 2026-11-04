@@ -1,6 +1,6 @@
 """Expressions and numbers as text (spec 7.2 and 7.3).
 
-The IR holds expressions as trees. Text is how the HDL spells them:
+The IR holds expressions as trees. Text is how writers print them and hand-built IR spells them:
 `parse_expression` builds a tree from text, `format_expression` writes it back.
 
     expr    := term (("+" | "-") term)*
@@ -28,20 +28,23 @@ FUNCTIONS: dict[str, int] = {
     "pow": 2,
 }
 
-#: A number as text: optional sign, digits with an optional fraction, an optional exponent.
-NUMBER_PATTERN = re.compile(r"^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$")
+# A number without its sign: digits with an optional fraction, an optional exponent.
+_UNSIGNED = r"(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+
+#: A number as text: an optional sign, then the number.
+NUMBER_PATTERN = re.compile(rf"[+-]?{_UNSIGNED}")
 
 
 class ExpressionError(ValueError):
     """Text that doesn't follow the expression or number grammar."""
 
 
-# Numbers
+# --- Numbers ---
 
 
 def parse_number(text: str) -> Decimal:
     """Parse a number in the grammar of spec 7.3 into an exact `Decimal`. No scale factors."""
-    if not NUMBER_PATTERN.match(text):
+    if not NUMBER_PATTERN.fullmatch(text):
         raise ExpressionError(f"not a number: {text!r}")
     try:
         return Decimal(text)
@@ -65,11 +68,11 @@ def format_number(value: Decimal) -> str:
     return mantissa if exponent == 0 else f"{mantissa}e{exponent}"
 
 
-# Parsing
+# --- Parsing ---
 
 _TOKEN = re.compile(
     r"\s*(?:"
-    r"(?P<number>(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
+    rf"(?P<number>{_UNSIGNED})"
     rf"|(?P<name>{IDENTIFIER})"
     r"|(?P<op>[-+*/(),])"
     r")"
@@ -179,7 +182,7 @@ def parse_expression(text: str) -> Expression:
     return Expression(root=_Parser(text).parse())
 
 
-# Printing
+# --- Printing ---
 
 # Binding strength: higher binds tighter. A node is wrapped in parentheses when its context needs more.
 _STRENGTH = {"+": 1, "-": 1, "*": 2, "/": 2, "neg": 3, "atom": 4}
@@ -218,7 +221,7 @@ def _render(node: Expr, needed: int, functions: Mapping[str, str]) -> str:
     return f"({text})" if strength < needed else text
 
 
-# Inspection and helpers
+# --- Inspection and helpers ---
 
 
 def param_refs(expression: Expression | Expr) -> list[str]:

@@ -3,6 +3,7 @@
 from spicule.dialects.common import NetNames, WriterError, cells_to_write, check_ground
 from spicule.dialects.spectre.syntax import BUILTINS, BUS_FORMAT, CONSTANTS, KEYWORDS, MULTIPLICITY, RESERVED
 from spicule.ir import (
+    Cell,
     Element,
     Expression,
     External,
@@ -15,8 +16,10 @@ from spicule.ir import (
     is_identifier,
     validate,
 )
-from spicule.ir.connections import bits, nets, signal_bits
 from spicule.ir.expressions import format_expression, number, param_refs
+
+#: Names no cell or instance may have.
+_NO_CELL_NAMES = KEYWORDS | CONSTANTS
 
 
 def write(
@@ -59,7 +62,7 @@ def write(
 
 def _check_names(netlist: Netlist) -> None:
     for cell in netlist.cells:
-        if cell.name in KEYWORDS | CONSTANTS:
+        if cell.name in _NO_CELL_NAMES:
             raise WriterError(f"cell name {cell.name!r} is a Spectre keyword")
         if isinstance(cell, External) and cell.element is Element.BUILTIN and cell.name not in BUILTINS:
             raise WriterError(f"{cell.name!r} is not a Spectre built-in (known: {', '.join(sorted(BUILTINS))})")
@@ -73,17 +76,16 @@ def _check_names(netlist: Netlist) -> None:
             if net.name in CONSTANTS:
                 raise WriterError(f"cell {cell.name!r}: net name {net.name!r} is a Spectre constant")
         for inst in cell.instances:
-            if inst.name in KEYWORDS | CONSTANTS:
+            if inst.name in _NO_CELL_NAMES:
                 raise WriterError(f"cell {cell.name!r}: instance name {inst.name!r} is a Spectre keyword")
 
 
-def _subckt(cell: Subckt, by_name: dict, bus_format: str, origins: bool) -> list[str]:
+def _subckt(cell: Subckt, by_name: dict[str, Cell], bus_format: str, origins: bool) -> list[str]:
     names = NetNames(cell, bus_format)
-    pins = [names.names[bit] for port in cell.ports for bit in signal_bits(port)]
     lines = []
     if origins and cell.meta.origin:
         lines.append(f"// origin: {cell.meta.origin}")
-    lines.append(f"subckt {cell.name} ({' '.join(pins)})")
+    lines.append(f"subckt {cell.name} ({' '.join(names.pins())})")
     params = [decl for decl in cell.params if decl.name != MULTIPLICITY]
     _check_multiplicity(cell)
     if params:
@@ -106,16 +108,13 @@ def _check_multiplicity(cell: Subckt) -> None:
             raise WriterError(f"cell {cell.name!r}: Spectre doesn't allow m in expressions inside a subcircuit")
 
 
-def _instance(inst: Instance, by_name: dict, names: NetNames, origins: bool, indent: str) -> list[str]:
+def _instance(inst: Instance, by_name: dict[str, Cell], names: NetNames, origins: bool, indent: str) -> list[str]:
     target = by_name[inst.cell]
-    cell_nets = nets(names.cell)
-    pieces = {conn.port: conn.pieces for conn in inst.connections}
-    nodes = [name for port in target.ports for name in names.of(bits(pieces[port.name], cell_nets), inst)]
     params = "".join(f" {_param(p)}" for p in inst.params)
     lines = []
     if origins and inst.meta.origin:
         lines.append(f"{indent}// origin: {inst.meta.origin}")
-    lines.append(f"{indent}{inst.name} ({' '.join(nodes)}) {target.name}{params}")
+    lines.append(f"{indent}{inst.name} ({' '.join(names.nodes(inst, target))}) {target.name}{params}")
     return lines
 
 
