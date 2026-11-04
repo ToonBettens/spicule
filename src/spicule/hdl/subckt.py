@@ -20,6 +20,7 @@ a name. Connections go by keyword, or by position in the cell's port order::
     buf = Inv()(vdd, gnd, y, z)
 """
 
+from itertools import count
 from typing import Any
 
 from spicule.hdl.nets import Concat, Connectable, Port, Signal
@@ -161,6 +162,13 @@ class Instance:
 
 # --- Subckts ---
 
+_serials = count()
+
+
+def new_serial() -> int:
+    """A number that grows with every call: it tells which subckts are newer than a moment (generators)."""
+    return next(_serials)
+
 
 class SubcktInfo(CellInfo):
     """The contents of a subckt class (`h.info(cls)`)."""
@@ -173,6 +181,8 @@ class SubcktInfo(CellInfo):
         self.signals: dict[str, Signal] = {}
         self.instances: dict[str, Instance] = {}
         self.params: dict[str, Param] = {}
+        self.serial = new_serial()
+        self.generated = False  # Named by a generator
 
     def check_params(self, values: dict[str, Any], source: Source | None) -> dict[str, HdlValue]:
         """Only declared parameters may be set, and they are numbers."""

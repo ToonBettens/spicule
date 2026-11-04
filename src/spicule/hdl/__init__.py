@@ -18,6 +18,7 @@ from spicule.hdl.external import (
     SUBCKT,
     External,
 )
+from spicule.hdl.generator import generator
 from spicule.hdl.nets import Concat, Connectable, NoConn, Port, Ports, Signal, Signals, Slice
 from spicule.hdl.params import Param, ParamExpr, fn
 from spicule.hdl.source import HdlError, HdlWarning, Source
@@ -52,6 +53,7 @@ __all__ = [
     "SubcktInfo",
     "elaborate",
     "fn",
+    "generator",
     "info",
     "new_subckt",
 ]  # fmt: skip
