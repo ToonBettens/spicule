@@ -118,9 +118,9 @@ is a subcircuit (`X`) or a transistor model (`M`). `element` records this:
 **Built-ins** are elements the simulator provides itself, without any included
 file, such as an ideal resistor or a voltage source. They have `element`
 `builtin`, and the name is the simulator's own name for the element, with the
-simulator's own parameters. Each dialect ships its built-ins as a declarations
-module next to its writer, and its writer rejects a built-in name it doesn't
-know.
+simulator's own parameters. spicule declares each dialect's built-ins for the
+HDL (`spicule.hdl.builtins`), and each writer rejects a built-in name it
+doesn't know.
 
 ## 6. Nets and connections
 

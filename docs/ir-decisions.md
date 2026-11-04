@@ -289,8 +289,8 @@ required, so the IR declares none. It only records what an instance sets, whose 
 The simulator reports a missing required parameter by instance name.
 
 A default we want for an external cell ("our `nch` uses `l=16e-9`") is a choice about how we use the cell, not a
-fact about the cell. The producer writes it on each instance (in the HDL, a reusable `nch(l=16e-9)`), so the
-value is explicit in the IR and in the netlist.
+fact about the cell. The producer writes it on each instance, so the value is explicit in the IR and in the
+netlist.
 
 Considered and left out: closed externals that refuse unknown names. Nothing needs them yet. The flag can be
 added later without breaking anything.

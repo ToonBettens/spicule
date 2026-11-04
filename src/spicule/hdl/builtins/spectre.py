@@ -1,0 +1,16 @@
+"""Spectre's built-in elements."""
+
+from spicule.hdl.builtins import builtin
+
+resistor = builtin("resistor", ["p", "n"])
+capacitor = builtin("capacitor", ["p", "n"])
+inductor = builtin("inductor", ["p", "n"])
+vsource = builtin("vsource", ["p", "n"])
+isource = builtin("isource", ["sink", "src"])
+vcvs = builtin("vcvs", ["p", "n", "ps", "ns"])
+vccs = builtin("vccs", ["sink", "src", "ps", "ns"])
+ccvs = builtin("ccvs", ["p", "n"])
+cccs = builtin("cccs", ["sink", "src"])
+
+#: Every built-in, by name.
+BUILTINS = {cell.name: cell for cell in (resistor, capacitor, inductor, vsource, isource, vcvs, vccs, ccvs, cccs)}
