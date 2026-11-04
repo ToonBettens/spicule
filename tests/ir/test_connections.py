@@ -177,3 +177,13 @@ def test_open_bits_dont_count_as_connections():
     # Port o is left open, so nothing reaches signal y: it is unused, not "connected four times".
     found = warnings(tb_with(IN, ir.Connection(port="o", pieces=(ir.NoConnect(width=4),))))
     assert ("W-1", "signal 'y' is not connected to anything") in found
+
+
+def test_a_repeated_bit_starts_a_new_piece():
+    declared = {"d": ir.Signal(name="d", range=ir.Range(msb=3, lsb=0))}
+    bit = ir.connections.NetBit
+    assert ir.connections.canonical_pieces([bit("d", 3), bit("d", 3)], declared) == (s("d", 3), s("d", 3))
+    assert ir.connections.canonical_pieces([bit("d", 3), bit("d", 2), bit("d", 2)], declared) == (
+        s("d", 3, 2),
+        s("d", 2),
+    )

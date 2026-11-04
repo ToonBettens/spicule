@@ -43,7 +43,10 @@ def parse_number(text: str) -> Decimal:
     """Parse a number in the grammar of spec 7.3 into an exact `Decimal`. No scale factors."""
     if not NUMBER_PATTERN.match(text):
         raise ExpressionError(f"not a number: {text!r}")
-    return Decimal(text)
+    try:
+        return Decimal(text)
+    except InvalidOperation as error:  # An exponent beyond what `Decimal` can hold.
+        raise ExpressionError(f"not a number: {text!r}") from error
 
 
 def format_number(value: Decimal) -> str:
@@ -149,7 +152,7 @@ class _Parser:
     def atom(self) -> Expr:
         kind, value, position = self.take()
         if kind == "number":
-            return Number(value=Decimal(value))
+            return Number(value=parse_number(value))
         if kind == "name":
             if not self.at_op("("):
                 return ParamRef(name=value)
@@ -241,11 +244,18 @@ def param_refs(expression: Expression | Expr) -> list[str]:
 
 
 def number(value: str | int | Decimal) -> Expression:
-    """A plain number as an `Expression`. A negative number becomes a negation of its magnitude."""
-    try:
-        d = parse_number(value) if isinstance(value, str) else Decimal(value)
-    except InvalidOperation as e:
-        raise ExpressionError(f"not a number: {value!r}") from e
+    """
+    A plain number as an `Expression`. A negative number becomes a negation of its magnitude. A float is refused: its
+    binary value isn't the number it prints as.
+    """
+    if isinstance(value, str):
+        d = parse_number(value)
+    elif isinstance(value, Decimal | int) and not isinstance(value, bool):
+        d = Decimal(value)
+    else:
+        raise ExpressionError(f"not a str, int or Decimal: {value!r}")
+    if not d.is_finite():
+        raise ExpressionError(f"not a finite number: {value!r}")
     root: Expr = Number(value=abs(d))
     return Expression(root=Neg(operand=root) if d < 0 else root)
 

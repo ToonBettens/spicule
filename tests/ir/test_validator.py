@@ -261,3 +261,10 @@ def test_invalid_netlists_are_not_remembered():
     for _ in range(2):
         with pytest.raises(ir.ValidationError):
             ir.validate(broken)
+
+
+def test_only_a_netlist_can_be_checked():
+    [v] = ir.check(ir.Signal(name="a"))  # ty: ignore[invalid-argument-type]
+    assert v.rule == "F-1"
+    with pytest.raises(ir.ValidationError):
+        ir.validate(ir.Signal(name="a"))  # ty: ignore[invalid-argument-type]

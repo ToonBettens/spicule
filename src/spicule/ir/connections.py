@@ -93,7 +93,7 @@ def canonical_pieces(bit_list: list[Bit], cell_nets: Mapping[str, Signal]) -> tu
                 delta = nxt.index - run[-1]
                 if step == 0 and delta in (1, -1):
                     step = delta
-                elif delta != step:
+                elif delta == 0 or delta != step:  # A repeated bit starts a new piece.
                     break
                 run.append(nxt.index)
                 j += 1

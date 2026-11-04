@@ -151,3 +151,14 @@ def test_case_only_clashes_are_refused():
 def test_write_is_the_package_function():
     assert cdl.write is writer.write
     assert syntax.BUS_FORMAT == "{name}<{index}>"
+
+
+def test_parameters_of_the_top_cell_are_written():
+    top = ir.Subckt(
+        name="top",
+        signals=(sig("d"), sig("g"), sig("gnd")),
+        params=(decl("w", "2"), decl("x", "2*w")),
+        instances=(mos("m0", "nch", "d", "g", "gnd", p("l", "x")),),
+    )
+    text = cdl.write(ir.Netlist(cells=(NCH, top)), top="top", ground="gnd")
+    assert "* top: top\n.PARAM w=2\n.PARAM x='2*w'\nMm0 " in text

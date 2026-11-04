@@ -234,3 +234,14 @@ def test_external_parameters_are_open():
     # Still set once, and in scope.
     assert rules(top(L, L, target=RES)) == {"A-2"}
     assert rules(top(ir.ParamValue(name="nfin", value=ir.expr("2*w")), target=RES)) == {"A-4"}
+
+
+@pytest.mark.parametrize("value", ["1e99999999999999999999", Decimal("NaN"), Decimal("Infinity"), 0.1, True, None])
+def test_number_refuses_what_is_no_exact_number(value):
+    with pytest.raises(ir.ExpressionError):
+        ir.number(value)
+
+
+def test_a_huge_exponent_is_an_expression_error():
+    with pytest.raises(ir.ExpressionError):
+        ir.expr("2*1e99999999999999999999")

@@ -92,13 +92,14 @@ def validate(netlist: Netlist) -> None:
     violations = check(netlist)
     if violations:
         raise ValidationError(violations)
-    if isinstance(netlist, Netlist):
-        _validated.add(key)
-        weakref.finalize(netlist, _validated.discard, key)
+    _validated.add(key)
+    weakref.finalize(netlist, _validated.discard, key)
 
 
 def check(netlist: Netlist) -> list[Violation]:
     """All violations of `netlist`, empty if it is valid. Semantic rules run only once the field rules pass."""
+    if not isinstance(netlist, Netlist):
+        return [Violation(rule="F-1", where="netlist", message=f"expected a Netlist, got {type(netlist).__name__}")]
     return check_fields(netlist) or check_semantics(netlist)
 
 

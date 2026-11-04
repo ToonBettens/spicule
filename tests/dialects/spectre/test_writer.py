@@ -222,3 +222,22 @@ def test_reserved_parameter_names_on_subcircuits():
     netlist = dataclasses.replace(NETLIST, cells=tuple(hot if c.name == "inv" else c for c in NETLIST.cells))
     with pytest.raises(WriterError, match="reserved"):
         spectre.write(netlist)
+
+
+def test_parameters_of_the_top_cell_are_written():
+    res = builtin("resistor")
+    top = ir.Subckt(
+        name="tb",
+        signals=(sig("a"), sig("gnd")),
+        params=(decl("w", "2"), decl("x", "2*w")),
+        instances=(
+            ir.Instance(
+                name="r0",
+                cell="resistor",
+                connections=(conn("p", s("a")), conn("n", s("gnd"))),
+                params=(p("r", "x"),),
+            ),
+        ),
+    )
+    text = spectre.write(ir.Netlist(cells=(res, top)), top="tb", ground="gnd")
+    assert "// top: tb\nparameters w=2 x=2*w\nr0 (a 0) resistor r=x\n" in text

@@ -31,8 +31,8 @@ def write(
     """
     Write `netlist` as CDL text. The arguments shared with other writers mean the same there.
 
-    - `top=None` writes every subcircuit as a `.SUBCKT`. `top="x"` writes the subcircuits below `x` and `x`'s own
-      instances at the top level.
+    - `top=None` writes every subcircuit as a `.SUBCKT`. `top="x"` writes the subcircuits below `x`, and `x`'s own
+      parameters (`.PARAM`) and instances at the top level.
     - `ground` names a scalar net of the top cell that is written as `0`.
     - `bus_format` spells bus bits, with `{name}` and `{index}`.
     - `origins=True` writes each cell's and instance's `meta.origin` as a comment.
@@ -54,6 +54,7 @@ def write(
         lines.append("")
     if top_cell is not None:
         lines.append(f"* top: {top_cell.name}")
+        lines += [f".PARAM {_decl(decl)}" for decl in top_cell.params]
         names = NetNames(top_cell, bus_format, ground)
         for inst in top_cell.instances:
             lines += _instance(inst, by_name, names, origins)

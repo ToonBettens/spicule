@@ -222,3 +222,15 @@ def test_lint_warns_with_lines():
 
     with pytest.warns(h.HdlWarning, match=r"\[W-1\].*'b'"):
         h.elaborate(Top, lint=True)
+
+
+def test_the_same_bit_twice_in_one_connection():
+    two = h.External("two", element=h.SUBCKT, ports=[h.Port(name="x", width=2)])
+
+    class Top(h.Subckt):
+        d = h.Signal(width=4)
+        u = two()(x=h.Concat(d[3], d[3]))
+        v = two()(x=d[1:0])
+        w = two()(x=d[3:2])
+
+    assert "u (d\\<3\\> d\\<3\\>) two" in spectre.write(h.elaborate(Top))
