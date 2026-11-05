@@ -8,9 +8,6 @@ authors = [
 ]
 requires-python = ">=3.14"
 keywords = ["analog", "circuit", "HDL", "SPICE", "Spectre", "CDL", "netlist", "EDA"]
-classifiers = [
-    "Private :: Do Not Upload",  # not public yet: PyPI rejects uploads carrying this classifier
-]
 dependencies = []
 
 [dependency-groups]

@@ -39,12 +39,8 @@ def line_of(obj: type) -> int:
 
 # A small design, with lowercase cell names: PDK devices, a foreign subcircuit, subckts with buses and parameters, and a testbench.
 
-nch = h.External(
-    "nch", element=h.MOS, ports=[h.Port(name="d"), h.Port(name="g"), h.Port(name="s"), h.Port(name="b")]
-)
-pch = h.External(
-    "pch", element=h.MOS, ports=[h.Port(name="d"), h.Port(name="g"), h.Port(name="s"), h.Port(name="b")]
-)
+nch = h.External("nch", element=h.MOS, ports=[h.Port(name="d"), h.Port(name="g"), h.Port(name="s"), h.Port(name="b")])
+pch = h.External("pch", element=h.MOS, ports=[h.Port(name="d"), h.Port(name="g"), h.Port(name="s"), h.Port(name="b")])
 latch = h.External("latch4", element=h.SUBCKT, ports=[h.Port(name="d", width=4), h.Port(name="q", width=4)])
 
 

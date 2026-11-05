@@ -203,7 +203,7 @@ The list follows one rule: one value per kind of netlist line, so `subckt` (X),
 letters (`jfet` J, switches S/W, lossy lines O) can be added as new members
 without breaking anything.
 
-One declaration serves Spectre and CDL. Real lines from generated netlists:
+One declaration serves Spectre and CDL. Lines from generated netlists:
 
 ```
 CDL:      MM0 BIT BITb VDD VDD pch l=20.0n nfin=2 nf=1
