@@ -28,7 +28,7 @@ consumers (SPICE writers, data-out and analysis tools) read it.
      expression (`1.5e-6 == 0.0000015`).
    - connections are stored such that electrically equivalent wiring compares equally (`==`).
    - expressions are trees and compare structurally (`w*2 == w * 2 == (w)*2`, `2.0*w == 2*w`).
-5. **Versioning.** JSON carries `"version": 1`. Within version 1 only additive
+5. **Versioning.** JSON carries `"format": "spicule.ir/1"`. Within version 1 only additive
    changes. Readers reject unknown versions.
 6. **Rules.** Every rule has an id: a letter for its group and a number. Field
    rules look at one value at a time. Semantic rules compare values and follow
@@ -270,3 +270,48 @@ New annotations are added as new optional fields of `Meta`.
 | F-6 | `Binary.op` is one of `+ - * /`, and `Call.function` is from section 7.2 with the right number of arguments. |
 | F-7 | A `Netlist` has at least one cell. |
 
+## 10. The netlist file
+
+`to_json(netlist)` gives a valid netlist as JSON text, and `from_json(text)` reads
+it back: a valid netlist, equal to the one written, with its `meta` intact. The
+file is for looking at the IR, comparing designs and keeping them.
+
+The top level is `{"format": "spicule.ir/1", "cells": [...]}`: the format and its
+version, then the cells. Below it, the file follows the model field for field:
+
+- Field names are the model's. Every field is always written: an absent optional
+  is `null`, an empty sequence `[]`.
+- Sequences are lists, in the model's order.
+- Enums are their values: `"element": "mos"`.
+- A `kind` says which one it is wherever a value can be one of several:
+
+  | Value | `kind` | Other fields |
+  | --- | --- | --- |
+  | Cell | `subckt`, `external` | the cell's fields |
+  | Piece | `signal_ref`, `no_connect` | the piece's fields |
+  | Parameter value | `expression`, `text` | `text`: the expression's text, or the text itself |
+
+An expression is its text as `format_expression` writes it. Numbers are therefore
+exact, and `parse_expression` gives back the same tree.
+
+```json
+{
+  "name": "mn",
+  "cell": "nch",
+  "connections": [
+    {"port": "d", "pieces": [
+      {"kind": "signal_ref", "signal": "q", "range": {"msb": 3, "lsb": 2}},
+      {"kind": "no_connect", "width": 2}
+    ]}
+  ],
+  "params": [
+    {"name": "nfin", "value": {"kind": "expression", "text": "2*nfin"}},
+    {"name": "flavor", "value": {"kind": "text", "text": "lvt"}}
+  ],
+  "meta": {"origin": "design.py:12"}
+}
+```
+
+Text that isn't JSON, another format or version, a missing or unknown field or an
+unknown `kind` raises `FormatError`, naming where in the file. A file with the
+right shape whose netlist breaks a rule raises `ValidationError`.

@@ -41,6 +41,7 @@ from spicule.ir.model import (
     Value,
     is_identifier,
 )
+from spicule.ir.serialize import FormatError, from_json, to_json
 from spicule.ir.validator import ValidationError, Violation, check, lint, validate
 
 __all__ = [
@@ -54,6 +55,7 @@ __all__ = [
     "Expression",
     "ExpressionError",
     "External",
+    "FormatError",
     "Instance",
     "Meta",
     "Neg",
@@ -77,10 +79,12 @@ __all__ = [
     "expr",
     "format_expression",
     "format_number",
+    "from_json",
     "is_identifier",
     "lint",
     "number",
     "parse_expression",
     "parse_number",
+    "to_json",
     "validate",
 ]
