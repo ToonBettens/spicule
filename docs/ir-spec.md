@@ -1,35 +1,37 @@
 # spicule.ir v1: specification
 
 The model is the Python dataclasses in `src/spicule/ir/model.py`. This document
-describes the model and numbers every rule a valid `Netlist` follows. The reasoning
-behind it, and the alternatives that were weighed, are in `ir-decisions.md`.
+describes the model and numbers every rule a valid `Netlist` follows. The
+reasoning behind it, and the alternatives that were weighed, are in
+`ir-decisions.md`.
 
 ## 0. Scope
 
 The IR is the circuit part of a SPICE deck in structured, dialect-neutral form:
-subcircuits, instances, nets and parameters. Producers (spicule HDL, netlist readers),
-consumers (SPICE writers, data-out and analysis tools) read it.
+subcircuits, instances, nets and parameters. The HDL and other producers make
+it, and writers and tools read it.
 
 ## 1. Conventions
 
-1. **Required and absent.** A required field is a required constructor
-   argument. An optional field is `None` when absent. Sequences are tuples
-   (empty has meaning). A field holding one of several kinds is a union.
+1. **Required and absent.** A required field is a required constructor argument.
+   An optional field is `None` when absent. Sequences are tuples (empty has
+   meaning). A field holding one of several kinds is a union.
 2. **Immutable values.** Every class is a frozen, slotted, keyword-only
    dataclass. Enums are plain `Enum`s with lowercase values.
-3. **Order is part of the value.** Tuples compare in order, so two netlists
-   that list the same instances in a different order are different values.
-   Producers emit in a deterministic order and every tool preserves it.
-   Port order is also pin order, and piece order is also bit order.
-   Order-insensitive comparison comes as its own independent helper function.
+3. **Order is part of the value.** Tuples compare in order, so two netlists that
+   list the same instances in a different order are different values. Producers
+   emit in a deterministic order and every tool preserves it. Port order is also
+   pin order, and piece order is also bit order. An order-insensitive comparison
+   would be a helper of its own.
 4. **Equality is circuit equality**, with these refinements:
    - `meta` fields are ignored.
    - numbers are `Decimal` and compare numerically, wherever they appear in an
      expression (`1.5e-6 == 0.0000015`).
-   - connections are stored such that electrically equivalent wiring compares equally (`==`).
-   - expressions are trees and compare structurally (`w*2 == w * 2 == (w)*2`, `2.0*w == 2*w`).
-5. **Versioning.** JSON carries `"format": "spicule.ir/1"`. Within version 1 only additive
-   changes. Readers reject unknown versions.
+   - connections have one canonical form, so equal wiring compares equal.
+   - expressions are trees and compare structurally (`w*2 == w * 2 == (w)*2`,
+     `2.0*w == 2*w`).
+5. **Versioning.** JSON carries `"format": "spicule.ir/1"`. Within version 1
+   only additive changes. Readers reject unknown versions.
 6. **Rules.** Every rule has an id: a letter for its group and a number. Field
    rules look at one value at a time. Semantic rules compare values and follow
    references, and are only checked on netlists that pass every field rule.
@@ -74,12 +76,13 @@ Every identifier matches `[A-Za-z_][A-Za-z0-9_]*`. Names are case-sensitive.
 | N-3 | Instance names are unique within their cell. |
 | N-4 | Parameter names are unique within their cell. |
 
-Reserved keywords or case-insensitivity are checks consumers are responsible for.
+Reserved keywords or case-insensitivity are checks consumers are responsible
+for.
 
 ## 4. Cells and references
 
-A netlist holds one or more top cells and every cell they use, each once,
-leaves first. Every instantiated cell is in it: `Subckt`s defined here, and PDK
+A netlist holds one or more top cells and every cell they use, each once, leaves
+first. Every instantiated cell is in it: `Subckt`s defined here, and PDK
 devices, foreign subcircuits and built-ins as `External` cells.
 
 A cell's name is its identity and is final: an instance names its cell.
@@ -91,21 +94,14 @@ A cell's name is its identity and is final: an instance names its cell.
 
 ## 5. External cells
 
-A netlist can use cells whose contents it doesn't contain: PDK devices, IP
-blocks and standard cells defined in other netlist files, and the simulator's
-own elements. The files that define them (PDK model libraries, IP netlists) are
-pulled in by include directives, which belong to the simulation setup, not to
-the IR.
+An `External` is the interface of a cell defined elsewhere: its name and ports
+in pin order, without contents. It stands for a PDK device, an IP block or an
+element of the simulator. Its parameters are not declared (section 7.1), and the
+files that define it are included by a simulation (`sim-spec.md`).
 
-Such a cell is still instantiated like any other. For that the netlist needs
-its interface (name and ports in pin order) and nothing else: an `External`
-cell is exactly that interface, without contents. Its parameters are not
-declared (section 7.1).
-
-To call it, a writer must know what kind of thing the name refers to, because
-many SPICE dialects write a different instance line for each: the first letter
-of the instance name (the element letter) tells the simulator whether `nch`
-is a subcircuit (`X`) or a transistor model (`M`). `element` records this:
+To call it, a writer must know what the name refers to, because the first letter
+of a SPICE instance name tells whether `nch` is a subcircuit (`X`) or a
+transistor model (`M`). `element` records this:
 
 | `element` | The name refers to | Instance line |
 | --- | --- | --- |
@@ -114,23 +110,22 @@ is a subcircuit (`X`) or a transistor model (`M`). `element` records this:
 | `diode`, `bipolar` | a diode or bipolar model | `D1 ...`, `Q1 ...` |
 | `resistor`, `capacitor`, `inductor` | a resistor, capacitor or inductor model | `R1 a b name ...` (C, L) |
 
-
 **Built-ins** are elements the simulator provides itself, without any included
 file, such as an ideal resistor or a voltage source. They have `element`
 `builtin`, and the name is the simulator's own name for the element, with the
 simulator's own parameters. spicule declares each dialect's built-ins for the
-HDL (`spicule.hdl.builtins`), and each writer rejects a built-in name it
-doesn't know.
+HDL (`spicule.hdl.builtins`), and each writer rejects a built-in name it doesn't
+know.
 
 ## 6. Nets and connections
 
 ### 6.1 Signals and buses
 
 A `Signal` without `range` is a scalar net. With a range (even `<0:0>`) it is a
-bus. `Range(msb, lsb)` is defined as: `msb` is the left index, `lsb` the
-right one, either may be larger, both `>= 0`. A range expands left to right:
-`<3:0>` is bits 3, 2, 1, 0 and `<0:3>` is 0, 1, 2, 3. A bus port contributes its
-bits to the pin list in expansion order.
+bus. `Range(msb, lsb)` is defined as: `msb` is the left index, `lsb` the right
+one, either may be larger, both `>= 0`. A range expands left to right: `<3:0>`
+is bits 3, 2, 1, 0 and `<0:3>` is 0, 1, 2, 3. A bus port contributes its bits to
+the pin list in expansion order.
 
 Writers spell bus bits per dialect (`d<3>`, `d\<3\>`, ...).
 
@@ -141,11 +136,11 @@ of pieces in expansion order. The pieces' bits, concatenated, meet the port's
 bits first to first. A piece is:
 
 - `SignalRef(signal, range?)`: bits of a port or internal signal of the
-  containing `Subckt`. No range: the whole signal (scalar or whole bus). With
-  a range: those bits, in either direction (`d<0:3>` of a `d<3:0>` bus). A
-  single bit is written `<5:5>`.
-- `NoConnect(width)`: `width` bits deliberately left open. Writers give each
-  bit a unique net.
+  containing `Subckt`. No range: the whole signal (scalar or whole bus). With a
+  range: those bits, in either direction (`d<0:3>` of a `d<3:0>` bus). A single
+  bit is written `<5:5>`.
+- `NoConnect(width)`: `width` bits deliberately left open. Writers give each bit
+  a unique net.
 
 | Rule | |
 | --- | --- |
@@ -160,8 +155,8 @@ Every connection has exactly one representation. To get it, flatten the pieces
 to bits, then rebuild them left to right, each time taking the longest run:
 
 - Consecutive bits of one bus that step by +1 or -1 throughout form one
-  `SignalRef`, and a run that is exactly the whole bus in its declared
-  direction is written without range.
+  `SignalRef`, and a run that is exactly the whole bus in its declared direction
+  is written without range.
 - A bit of a scalar signal is a piece on its own.
 - Consecutive open bits form one `NoConnect`.
 
@@ -170,9 +165,9 @@ to bits, then rebuild them left to right, each time taking the longest run:
 | C-5 | Pieces are in canonical form. |
 
 `canonical_pieces()` implements it for one connection, and every producer calls
-it. `canonicalize()` does it for a whole netlist. Example: with
-`d<7:0>` declared, bits `d<3> d<2> d<5> d<6> NC NC` are the pieces `d<3:2>`,
-`d<5:6>`, `NoConnect(2)`.
+it. `canonicalize()` does it for a whole netlist. Example: with `d<7:0>`
+declared, bits `d<3> d<2> d<5> d<6> NC NC` are the pieces `d<3:2>`, `d<5:6>`,
+`NoConnect(2)`.
 
 ### 6.4 Floating nets
 
@@ -198,9 +193,8 @@ and every value set on an instance are `Expression`s. A plain number is the
 smallest expression, `Expression(Number(...))`. An instance sets
 `ParamValue(name, value)`. Only on an instance of an `External` may a value also
 be a `str`, for text parameters of devices and built-ins (`type=dc`,
-`file="in.pwl"`).
-Multiplicity `m` is an ordinary parameter: a subckt that accepts it declares
-it.
+`file="in.pwl"`). Multiplicity `m` is an ordinary parameter: a subckt that
+accepts it declares it.
 
 An `External` declares no parameters. They are open: the cell is defined
 elsewhere, and so are its parameters, their defaults and which ones are
@@ -217,11 +211,10 @@ from its value, and the simulator checks it.
 
 ### 7.2 Expressions
 
-An `Expression` holds a tree. Text is only how writers print it and readers
-read it. Nodes:
-`Number(value)`, `ParamRef(name)`, `Neg(operand)` (negation),
-`Binary(op, left, right)` with `op` one of `+ - * /`, and `Call(function, args)`.
-Power is the function `pow(x, y)`, not an operator. The text grammar:
+An `Expression` holds a tree. Text is only how writers print it and readers read
+it. Nodes: `Number(value)`, `ParamRef(name)`, `Neg(operand)` (negation),
+`Binary(op, left, right)` with `op` one of `+ - * /`, and `Call(function,
+args)`. Power is the function `pow(x, y)`, not an operator. The text grammar:
 
 ```
 expr    := term (("+" | "-") term)*
@@ -248,9 +241,9 @@ Equal numbers always print the same.
 ## 8. Metadata
 
 Cells and instances, the nodes of the hierarchy, carry a `meta` field. `Meta`
-holds annotations that never affect meaning: `==`, hashing, validation and
-every writer output other than comments ignore it. Anything that changes output
-is circuit information and is a regular field, never part of `Meta`.
+holds annotations that never affect meaning: `==`, hashing, validation and every
+writer output other than comments ignore it. Anything that changes output is
+circuit information and is a regular field, never part of `Meta`.
 
 | Field | |
 | --- | --- |
@@ -272,13 +265,14 @@ New annotations are added as new optional fields of `Meta`.
 
 ## 10. The netlist file
 
-`spicule.dialects.jsonio` writes a valid netlist as JSON text with `write(netlist)`,
-and `read(text)` reads it back: a valid netlist, equal to the one written, with its
-`meta` intact. The file is for looking at the IR, comparing designs and keeping
-them.
+`spicule.dialects.jsonio` writes a valid netlist as JSON text with
+`write(netlist)`, and `read(text)` reads it back: a valid netlist, equal to the
+one written, with its `meta` intact. The file is for looking at the IR,
+comparing designs and keeping them.
 
-The top level is `{"format": "spicule.ir/1", "cells": [...]}`: the format and its
-version, then the cells. Below it, the file follows the model field for field:
+The top level is `{"format": "spicule.ir/1", "cells": [...]}`: the format and
+its version, then the cells. Below it, the file follows the model field for
+field:
 
 - Field names are the model's. Every field is always written: an absent optional
   is `null`, an empty sequence `[]`.
@@ -292,10 +286,8 @@ version, then the cells. Below it, the file follows the model field for field:
   | Piece | `signal_ref`, `no_connect` | the piece's fields |
   | Parameter value | `expression`, `text` | `text`: the expression's text, or the text itself |
 
-An expression is its text as `format_expression` writes it. Numbers are therefore
-exact, and `parse_expression` gives back the same tree.
-
-A simulation has a file of its own, with a netlist in it (`sim-spec.md`, section 6).
+An expression is its text as `format_expression` writes it. Numbers are
+therefore exact, and `parse_expression` gives back the same tree.
 
 ```json
 {
@@ -315,6 +307,9 @@ A simulation has a file of its own, with a netlist in it (`sim-spec.md`, section
 }
 ```
 
-Text that isn't JSON, another format or version, a missing or unknown field or an
-unknown `kind` raises `FormatError`, naming where in the file. A file with the
-right shape whose netlist breaks a rule raises `ValidationError`.
+Text that isn't JSON, another format or version, a missing or unknown field or
+an unknown `kind` raises `FormatError`, naming where in the file. A file with
+the right shape whose netlist breaks a rule raises `ValidationError`.
+
+A simulation has a file of its own, with a netlist in it (`sim-spec.md`, section
+6).

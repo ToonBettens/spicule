@@ -9,6 +9,7 @@ dataclasses in `src/spicule/sim/model.py`. It depends only on `spicule.ir`.
 from spicule import sim
 from spicule.dialects import spectre
 
+tran = sim.Analysis("tr", "tran", stop=1e-9)
 run = sim.Simulation(
     h.elaborate(tb),
     top="tb",
@@ -20,15 +21,7 @@ run = sim.Simulation(
     raw=["ic y=0"],
     analyses=[
         sim.Analysis("op", "dc"),
-        sim.Analysis(
-            "sw",
-            "sweep",
-            param="vdd",
-            values=[0.6, 0.8],
-            children=[
-                sim.Analysis("tr", "tran", stop=1e-9),
-            ],
-        ),
+        sim.Analysis("sw", "sweep", param="vdd", values=[0.6, 0.8], children=[tran]),
     ],
 )
 text = spectre.write(run)
@@ -72,12 +65,13 @@ A parameter of an analysis or of the options is one of:
 | `str` | A text |
 | a list or a tuple of those | A list. It holds at least one value |
 
-A value in `params` is a number or an expression, as any subckt parameter is.
+A value in `params` is a number or an expression, as any subckt parameter is. A
+`str` is refused there, even `"3"`.
 
 ## 4. Rules
 
-`sim.validate(simulation)` raises `sim.SimulationError` at the first broken rule,
-after `ir.validate` of the netlist. Writers validate first.
+`sim.validate(simulation)` raises `sim.SimulationError` at the first broken
+rule, after `ir.validate` of the netlist. Writers validate first.
 
 | Rule | Text |
 | --- | --- |
@@ -108,17 +102,17 @@ The known types are `ANALYSES` in `dialects/spectre/syntax.py`, from what
 `spectre -h` lists as analyses and controls. `options` has its own field, and
 `altergroup` holds a circuit, so it goes in `raw`. Only `sweep` and `montecarlo`
 take children, written as a `{ }` block. In a list, anything but a number, a
-parameter or a unary of those gets parentheses, as Spectre asks:
-`values=[1 -w (2*w)]`.
+parameter or a unary of those gets parentheses, as Spectre asks: `values=[1 -w
+(2*w)]`.
 
 `cdl.write` takes a netlist only, because LVS has no analyses.
 
 ## 6. The simulation file
 
-`jsonio.write` and `jsonio.read` take and give a simulation too. The rules of the
-netlist file hold (`ir-spec.md`, section 10). The top level has
-`"format": "spicule.sim/1"`, the circuit under `"netlist": {"cells": [...]}`, then
-the fields above.
+`jsonio.write` and `jsonio.read` take and give a simulation too. The rules of
+the netlist file hold (`ir-spec.md`, section 10). The top level has `"format":
+"spicule.sim/1"`, the circuit under `"netlist": {"cells": [...]}`, then the
+fields above.
 
 | Value | `kind` | Other fields |
 | --- | --- | --- |

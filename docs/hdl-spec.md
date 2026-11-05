@@ -1,8 +1,8 @@
 # spicule.hdl: specification
 
 The HDL is what designers write: Python classes and functions that elaborate to
-a validated `spicule.ir.Netlist`. This document describes the language. The
-result it produces is specified in `ir-spec.md`.
+a validated `spicule.ir.Netlist`. This document describes the language, and
+`ir-spec.md` the result it produces. For an introduction, see `guide.md`.
 
 ```python
 import spicule.hdl as h
