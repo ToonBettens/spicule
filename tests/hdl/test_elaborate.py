@@ -1,6 +1,7 @@
-"""Elaboration, against golden Spectre and CDL netlists in tests/hdl/golden/."""
+"""Elaboration, against golden Spectre and CDL netlists and a golden IR in tests/hdl/golden/."""
 
 import inspect
+import json
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,15 @@ def golden(name: str, text: str) -> None:
         path.write_text(text)
         pytest.fail(f"wrote new golden file {path.name}: review it by hand, then run again")
     assert text == path.read_text()
+
+
+def without_origins(data: object) -> object:
+    """JSON data with every origin blanked: they hold line numbers of this file, and have their own test."""
+    if isinstance(data, list):
+        return [without_origins(item) for item in data]
+    if isinstance(data, dict):
+        return {key: {"origin": None} if key == "meta" else without_origins(value) for key, value in data.items()}
+    return data
 
 
 def line_of(obj: type) -> int:
@@ -77,6 +87,12 @@ def test_spectre_testbench():
 
 def test_cdl_library():
     golden("bank.cdl", cdl.write(h.elaborate(bank)))
+
+
+def test_the_ir():
+    netlist = h.elaborate(bank, Tb)
+    golden("design.json", json.dumps(without_origins(json.loads(ir.to_json(netlist))), indent=2) + "\n")
+    assert ir.from_json((GOLDEN / "design.json").read_text()) == netlist
 
 
 def test_cells_leaves_first_each_once():

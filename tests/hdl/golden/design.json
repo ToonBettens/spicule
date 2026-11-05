@@ -1,0 +1,699 @@
+{
+  "format": "spicule.ir/1",
+  "cells": [
+    {
+      "kind": "external",
+      "name": "latch4",
+      "element": "subckt",
+      "ports": [
+        {
+          "name": "d",
+          "range": {
+            "msb": 3,
+            "lsb": 0
+          }
+        },
+        {
+          "name": "q",
+          "range": {
+            "msb": 3,
+            "lsb": 0
+          }
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "external",
+      "name": "nch",
+      "element": "mos",
+      "ports": [
+        {
+          "name": "d",
+          "range": null
+        },
+        {
+          "name": "g",
+          "range": null
+        },
+        {
+          "name": "s",
+          "range": null
+        },
+        {
+          "name": "b",
+          "range": null
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "external",
+      "name": "pch",
+      "element": "mos",
+      "ports": [
+        {
+          "name": "d",
+          "range": null
+        },
+        {
+          "name": "g",
+          "range": null
+        },
+        {
+          "name": "s",
+          "range": null
+        },
+        {
+          "name": "b",
+          "range": null
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "subckt",
+      "name": "inv",
+      "ports": [
+        {
+          "name": "a",
+          "range": null
+        },
+        {
+          "name": "y",
+          "range": null
+        },
+        {
+          "name": "vdd",
+          "range": null
+        },
+        {
+          "name": "vss",
+          "range": null
+        }
+      ],
+      "params": [
+        {
+          "name": "nfin",
+          "default": {
+            "kind": "expression",
+            "text": "2"
+          }
+        },
+        {
+          "name": "m",
+          "default": {
+            "kind": "expression",
+            "text": "1"
+          }
+        }
+      ],
+      "signals": [],
+      "instances": [
+        {
+          "name": "mn",
+          "cell": "nch",
+          "connections": [
+            {
+              "port": "d",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "y",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "g",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "a",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "s",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vss",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "b",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vss",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "nfin",
+              "value": {
+                "kind": "expression",
+                "text": "nfin"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "mp",
+          "cell": "pch",
+          "connections": [
+            {
+              "port": "d",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "y",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "g",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "a",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "s",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vdd",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "b",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vdd",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "nfin",
+              "value": {
+                "kind": "expression",
+                "text": "2*nfin"
+              }
+            },
+            {
+              "name": "l",
+              "value": {
+                "kind": "expression",
+                "text": "max(16e-9, pow(nfin, 2)*4e-9)"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "subckt",
+      "name": "bank",
+      "ports": [
+        {
+          "name": "d",
+          "range": {
+            "msb": 3,
+            "lsb": 0
+          }
+        },
+        {
+          "name": "q",
+          "range": {
+            "msb": 0,
+            "lsb": 3
+          }
+        },
+        {
+          "name": "en",
+          "range": null
+        },
+        {
+          "name": "vdd",
+          "range": null
+        },
+        {
+          "name": "vss",
+          "range": null
+        }
+      ],
+      "params": [],
+      "signals": [
+        {
+          "name": "mid",
+          "range": {
+            "msb": 3,
+            "lsb": 0
+          }
+        }
+      ],
+      "instances": [
+        {
+          "name": "u0",
+          "cell": "latch4",
+          "connections": [
+            {
+              "port": "d",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "d",
+                  "range": {
+                    "msb": 3,
+                    "lsb": 2
+                  }
+                },
+                {
+                  "kind": "signal_ref",
+                  "signal": "en",
+                  "range": null
+                },
+                {
+                  "kind": "no_connect",
+                  "width": 1
+                }
+              ]
+            },
+            {
+              "port": "q",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "mid",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "u1",
+          "cell": "latch4",
+          "connections": [
+            {
+              "port": "d",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "mid",
+                  "range": {
+                    "msb": 0,
+                    "lsb": 3
+                  }
+                }
+              ]
+            },
+            {
+              "port": "q",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "q",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "x0",
+          "cell": "inv",
+          "connections": [
+            {
+              "port": "a",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "en",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "y",
+              "pieces": [
+                {
+                  "kind": "no_connect",
+                  "width": 1
+                }
+              ]
+            },
+            {
+              "port": "vdd",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vdd",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "vss",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vss",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "nfin",
+              "value": {
+                "kind": "expression",
+                "text": "3"
+              }
+            },
+            {
+              "name": "m",
+              "value": {
+                "kind": "expression",
+                "text": "2"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "external",
+      "name": "vsource",
+      "element": "builtin",
+      "ports": [
+        {
+          "name": "p",
+          "range": null
+        },
+        {
+          "name": "n",
+          "range": null
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "external",
+      "name": "capacitor",
+      "element": "builtin",
+      "ports": [
+        {
+          "name": "p",
+          "range": null
+        },
+        {
+          "name": "n",
+          "range": null
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    },
+    {
+      "kind": "subckt",
+      "name": "Tb",
+      "ports": [],
+      "params": [],
+      "signals": [
+        {
+          "name": "vdd",
+          "range": null
+        },
+        {
+          "name": "gnd",
+          "range": null
+        },
+        {
+          "name": "a",
+          "range": null
+        },
+        {
+          "name": "y",
+          "range": null
+        }
+      ],
+      "instances": [
+        {
+          "name": "dut",
+          "cell": "inv",
+          "connections": [
+            {
+              "port": "a",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "a",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "y",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "y",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "vdd",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vdd",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "vss",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "gnd",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "nfin",
+              "value": {
+                "kind": "expression",
+                "text": "4"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "vs",
+          "cell": "vsource",
+          "connections": [
+            {
+              "port": "p",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "vdd",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "n",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "gnd",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "type",
+              "value": {
+                "kind": "text",
+                "text": "dc"
+              }
+            },
+            {
+              "name": "dc",
+              "value": {
+                "kind": "expression",
+                "text": "800e-3"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "va",
+          "cell": "vsource",
+          "connections": [
+            {
+              "port": "p",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "a",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "n",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "gnd",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "type",
+              "value": {
+                "kind": "text",
+                "text": "pulse"
+              }
+            },
+            {
+              "name": "val0",
+              "value": {
+                "kind": "expression",
+                "text": "0"
+              }
+            },
+            {
+              "name": "val1",
+              "value": {
+                "kind": "expression",
+                "text": "800e-3"
+              }
+            },
+            {
+              "name": "period",
+              "value": {
+                "kind": "expression",
+                "text": "1e-9"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        },
+        {
+          "name": "cl",
+          "cell": "capacitor",
+          "connections": [
+            {
+              "port": "p",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "y",
+                  "range": null
+                }
+              ]
+            },
+            {
+              "port": "n",
+              "pieces": [
+                {
+                  "kind": "signal_ref",
+                  "signal": "gnd",
+                  "range": null
+                }
+              ]
+            }
+          ],
+          "params": [
+            {
+              "name": "c",
+              "value": {
+                "kind": "expression",
+                "text": "1e-15"
+              }
+            }
+          ],
+          "meta": {
+            "origin": null
+          }
+        }
+      ],
+      "meta": {
+        "origin": null
+      }
+    }
+  ]
+}
