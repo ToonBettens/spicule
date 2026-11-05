@@ -207,7 +207,7 @@ def test_rule_violations_point_at_the_instance():
         a = h.Signal()
         i0 = takes_w(w=2)(a=a)
 
-    Top.i0._params["w"] = "text"
+    Top.i0.params["w"] = "text"
     with pytest.raises(h.HdlError, match=r"\[A-3\]") as error:
         h.elaborate(Top)
     assert f"at tests/hdl/test_elaborate.py:{line_of(Top) + 2}" in str(error.value)  # relative, as meta.origin

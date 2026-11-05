@@ -4,7 +4,7 @@ Analog circuit description in Python, for Spectre simulation and Calibre LVS.
 
 | Layer | What | Depends on |
 | --- | --- | --- |
-| `spicule.hdl` | What designers write: modules, ports, signals, parameters, generators. Elaborates to `spicule.ir`. | `ir` |
+| `spicule.hdl` | What designers write: subckts, ports, signals, parameters, generators. Elaborates to `spicule.ir`. | `ir` |
 | `spicule.ir` | The resolved circuit: frozen dataclasses, one validator, stored as JSON. | nothing |
 | `spicule.dialects` | One module per external format (Spectre, CDL, ngspice, Xyce): writers now, readers later. | `ir` |
 

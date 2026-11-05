@@ -52,8 +52,8 @@ def test_two_calls():
     vss = h.Signal()
     inst = call(vdd=vdd, vss=vss, a=a, y=b)
     assert isinstance(inst, h.Instance)
-    assert set(inst._conns) == {"vdd", "vss", "a", "y"}
-    assert inst._params["nfin"] is not None
+    assert set(inst.conns) == {"vdd", "vss", "a", "y"}
+    assert inst.params["nfin"] is not None
 
 
 def test_ports_in_the_first_call_or_parameters_in_the_second():
@@ -220,9 +220,9 @@ def test_external_ports_as_a_list_of_strings_and_ports():
 def test_connections_by_position():
     a, y, vdd, vss = h.Signals(4)
     inst = Inv()(vdd, vss, a, y)
-    assert list(inst._conns) == ["vdd", "vss", "a", "y"]
+    assert list(inst.conns) == ["vdd", "vss", "a", "y"]
     mixed = Inv()(vdd, vss, y=y, a=a)
-    assert set(mixed._conns) == {"vdd", "vss", "a", "y"}
+    assert set(mixed.conns) == {"vdd", "vss", "a", "y"}
     with pytest.raises(h.HdlError, match="missing: a, y"):
         Inv()(vdd, vss)
     with pytest.raises(h.HdlError, match="has 4 port"):
@@ -237,14 +237,14 @@ def test_a_bus_unpacks_over_scalar_ports():
     three = h.External("three", h.SUBCKT, "a b c")
     d = h.Signal(width=3)
     inst = three()(*d)
-    assert [repr(conn) for conn, _ in inst._conns.values()] == ["?<2:2>", "?<1:1>", "?<0:0>"]
+    assert [repr(conn) for conn, _ in inst.conns.values()] == ["?<2:2>", "?<1:1>", "?<0:0>"]
 
 
 def test_a_tuple_is_a_concatenation():
     d = h.Signal(width=4)
     en = h.Signal()
     wide = h.External("wide", h.SUBCKT, "x[3:0]")
-    assert wide()(x=(d[3:2], en, h.NoConn(1)))._conns["x"][0].width == 4
+    assert wide()(x=(d[3:2], en, h.NoConn(1))).conns["x"][0].width == 4
     with pytest.raises(h.HdlError, match="3"):
         wide()(x=(d[3:2], en))
 
@@ -257,7 +257,7 @@ def test_partial_calls():
     assert set(derived.values) == {"l", "nfin"}
     first, second = derived(d=a, g=b, s=vss), derived(d=b, g=a, s=vss)
     assert first is not second
-    assert set(first._conns) == {"b", "d", "g", "s"}
+    assert set(first.conns) == {"b", "d", "g", "s"}
     with pytest.raises(h.HdlError, match="already connected"):
         derived(d=a, g=b, s=vss, b=a)
     with pytest.raises(h.HdlError, match="already connected"):

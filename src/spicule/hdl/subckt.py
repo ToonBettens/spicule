@@ -136,28 +136,27 @@ def _by_position(
 
 class Instance:
     """
-    An instance of a cell inside a subckt, made by calling a `CellCall`. Its fields start with `_`, so that ports can
-    become attributes later.
+    An instance of a cell inside a subckt, made by calling a `CellCall`. Its connections are fixed when it is made.
     """
 
     def __init__(self, cell: CellInfo, params: dict[str, HdlValue], conns: _Connections):
-        self._source = caller()
-        self._cell = cell
-        self._params = dict(params)
-        self._conns = conns
-        self._name: str | None = None
-        self._parent: object | None = None
+        self.source = caller()
+        self.cell = cell
+        self.params = dict(params)
+        self.conns = conns
+        self.name: str | None = None
+        self.owner: object | None = None  # The subckt (class) it belongs to
 
     def __set_name__(self, owner: object, name: str) -> None:
-        if self._parent is not None and self._parent is not owner:
-            raise HdlError(f"instance {self._name!r} already belongs to {self._parent}", self._source)
-        if self._name is not None and self._name != name:
-            raise HdlError(f"instance {self._name!r} can't also be named {name!r}; create a new one", self._source)
-        self._name = check_identifier(name, "instance name", self._source)
-        self._parent = owner
+        if self.owner is not None and self.owner is not owner:
+            raise HdlError(f"instance {self.name!r} already belongs to {self.owner}", self.source)
+        if self.name is not None and self.name != name:
+            raise HdlError(f"instance {self.name!r} can't also be named {name!r}; create a new one", self.source)
+        self.name = check_identifier(name, "instance name", self.source)
+        self.owner = owner
 
     def __repr__(self) -> str:
-        return f"Instance({self._name or '?'} of {self._cell.name})"
+        return f"Instance({self.name or '?'} of {self.cell.name})"
 
 
 # --- Subckts ---

@@ -59,7 +59,7 @@ def _sources_of(cells: dict[str, CellInfo], cell: str | None, instance: str | No
     if found is None:
         return []
     if instance is not None and isinstance(found, SubcktInfo) and instance in found.instances:
-        source = found.instances[instance]._source
+        source = found.instances[instance].source
     else:
         source = found.source
     return [source] if source is not None else []
@@ -82,7 +82,7 @@ def _collect(tops: list[SubcktInfo]) -> list[CellInfo]:
             raise HdlError(f"the subckt hierarchy has a cycle: {chain}", cell.source)
         stack.append(cell)
         for inst in cell.instances.values():
-            target = inst._cell
+            target = inst.cell
             if isinstance(target, SubcktInfo):
                 visit(target)
             elif target not in done:
@@ -147,31 +147,31 @@ class _SubcktBuilder:
         )
 
     def instance(self, name: str, inst: Instance) -> ir.Instance:
-        target = inst._cell
+        target = inst.cell
         connections = []
         for port_name, port in target.ports.items():
-            if port_name not in inst._conns:
+            if port_name not in inst.conns:
                 raise HdlError(
                     f"port {port_name!r} of instance {name} ({target.name}) is not connected; "
                     f"connect it, or use h.NoConn() for a pin left open on purpose",
-                    inst._source,
+                    inst.source,
                 )
-            conn, source = inst._conns[port_name]
+            conn, source = inst.conns[port_name]
             self.check_owners(conn, source)
             bits = ir.connections.bits(conn.to_ir(port.width), self.nets)
             pieces = ir.connections.canonical_pieces(bits, self.nets)
             connections.append(ir.Connection(port=port_name, pieces=pieces))
         params = []
-        for pname, value in inst._params.items():
+        for pname, value in inst.params.items():
             what = f"parameter {pname} of instance {name}"
-            self.check_refs(value, self.info.params.values(), what, inst._source, f"parameters of {self.info.name}")
+            self.check_refs(value, self.info.params.values(), what, inst.source, f"parameters of {self.info.name}")
             params.append(ir.ParamValue(name=pname, value=value_ir(value)))
         return ir.Instance(
             name=name,
             cell=target.name,
             connections=tuple(connections),
             params=tuple(params),
-            meta=ir.Meta(origin=_origin(inst._source, self.root)),
+            meta=ir.Meta(origin=_origin(inst.source, self.root)),
         )
 
     def check_owners(self, conn: Connectable, source: Source | None) -> None:
