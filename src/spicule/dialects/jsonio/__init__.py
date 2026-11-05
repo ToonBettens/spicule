@@ -1,4 +1,4 @@
-"""The IR as JSON: a file for looking at a netlist, comparing designs and keeping them (`ir-spec.md`, section 10)."""
+"""JSON files for looking at netlists and simulations, comparing them and keeping them (`ir-spec.md`, section 10)."""
 
 from spicule.dialects.jsonio.reader import read
 from spicule.dialects.jsonio.syntax import FormatError

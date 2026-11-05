@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import spicule.ir as ir
+from spicule import sim
 from spicule.dialects import cdl
 from spicule.dialects.cdl import syntax, writer
 from spicule.dialects.common import WriterError
@@ -101,12 +102,6 @@ def test_library():
     golden("library.cdl", cdl.write(NETLIST, origins=True))
 
 
-def test_top_inlines_the_cell():
-    text = cdl.write(NETLIST, top="bank")
-    assert ".SUBCKT bank" not in text
-    assert "Xxi d<0> q<0> vdd vss inv nfin=4" in text
-
-
 def test_pow_is_written_with_the_real_exponent():
     # Calibre's pow() truncates its exponent; ** doesn't.
     assert "nfin='(nfin)**(2)/2'" in cdl.write(NETLIST)
@@ -119,7 +114,7 @@ def test_every_instance_gets_its_letter():
     assert "Xu0 d<3> d<2> d<1> d<0> q<1> q<0> nc_u0_0 nc_u0_1 latch4" in text
 
 
-def test_builtins_need_lvs_false():
+def test_builtins():
     tb = ir.Subckt(
         name="rc",
         ports=(sig("a"), sig("b")),
@@ -136,9 +131,7 @@ def test_builtins_need_lvs_false():
         ),
     )
     netlist = ir.Netlist(cells=(resistor, capacitor, tb))
-    with pytest.raises(WriterError, match="LVS netlist"):
-        cdl.write(netlist)
-    golden("builtins.cdl", cdl.write(netlist, lvs=False))
+    golden("builtins.cdl", cdl.write(netlist))
 
 
 def test_case_only_clashes_are_refused():
@@ -153,12 +146,7 @@ def test_write_is_the_package_function():
     assert syntax.BUS_FORMAT == "{name}<{index}>"
 
 
-def test_parameters_of_the_top_cell_are_written():
-    top = ir.Subckt(
-        name="top",
-        signals=(sig("d"), sig("g"), sig("gnd")),
-        params=(decl("w", "2"), decl("x", "2*w")),
-        instances=(mos("m0", "nch", "d", "g", "gnd", p("l", "x")),),
-    )
-    text = cdl.write(ir.Netlist(cells=(NCH, top)), top="top", ground="gnd")
-    assert "* top: top\n.PARAM w=2\n.PARAM x='2*w'\nMm0 " in text
+def test_a_simulation_is_refused():
+    run = sim.Simulation(NETLIST, top="bank", ground="vss")
+    with pytest.raises(WriterError, match="can't write a simulation"):
+        cdl.write(run)  # ty: ignore[invalid-argument-type]

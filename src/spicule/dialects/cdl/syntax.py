@@ -9,7 +9,7 @@ BUS_FORMAT = "{name}<{index}>"
 FUNCTIONS = {"pow": "({0})**({1})"}
 
 #: The built-in elements the writer knows: their element letter, and the parameter written as the value (`R1 a b
-#: 1e3`). The HDL declares them (`spicule.hdl.builtins`). An LVS netlist (`lvs=True`) refuses them.
+#: 1e3`). The HDL declares them (`spicule.hdl.builtins`).
 BUILTINS: dict[str, tuple[str, str]] = {"resistor": ("R", "r"), "capacitor": ("C", "c"), "inductor": ("L", "l")}
 
 #: The element letter for each kind of external cell. Subcircuits, ours and foreign, are called with `X`.

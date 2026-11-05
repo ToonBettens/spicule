@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import spicule.ir as ir
+from spicule import sim
 from spicule.dialects import spectre
 from spicule.dialects.common import WriterError
 from spicule.dialects.spectre import syntax, writer
@@ -128,11 +129,11 @@ def test_library():
 
 
 def test_testbench_with_ground_and_origins():
-    golden("tb.scs", spectre.write(NETLIST, top="tb", ground="gnd", origins=True))
+    golden("tb.scs", spectre.write(sim.Simulation(NETLIST, top="tb", ground="gnd"), origins=True))
 
 
 def test_bus_format_option():
-    text = spectre.write(NETLIST, top="tb", bus_format="{name}[{index}]")
+    text = spectre.write(sim.Simulation(NETLIST, top="tb", ground="gnd"), bus_format="{name}[{index}]")
     assert "b0 (d[0] d[1] d[2] d[3] q[1] q[0]) bank" in text
 
 
@@ -140,14 +141,7 @@ def test_bus_format_must_keep_names_unique():
     clash = dataclasses.replace(TB, signals=(*TB.signals, sig("d_3")))
     netlist = dataclasses.replace(NETLIST, cells=(*NETLIST.cells[:-1], clash))
     with pytest.raises(WriterError, match="both spelled"):
-        spectre.write(netlist, top="tb", bus_format="{name}_{index}")
-
-
-def test_ground_must_be_a_scalar_net_of_the_top():
-    with pytest.raises(WriterError, match="ground"):
-        spectre.write(NETLIST, top="tb", ground="d")
-    with pytest.raises(WriterError, match="needs a top"):
-        spectre.write(NETLIST, ground="gnd")
+        spectre.write(sim.Simulation(netlist, top="tb", ground="gnd"), bus_format="{name}_{index}")
 
 
 def test_m_default_must_be_one():
@@ -202,7 +196,7 @@ def test_builtins():
             ),
         ),
     )
-    text = spectre.write(ir.Netlist(cells=(vsource, resistor, tb)), top="tb_rc", ground="gnd")
+    text = spectre.write(sim.Simulation(ir.Netlist(cells=(vsource, resistor, tb)), top="tb_rc", ground="gnd"))
     golden("builtins.scs", text)
 
 
@@ -214,7 +208,7 @@ def test_unknown_builtin():
         instances=(ir.Instance(name="x", cell="vmagic", connections=(conn("p", s("a")), conn("n", s("a")))),),
     )
     with pytest.raises(WriterError, match="not a Spectre built-in"):
-        spectre.write(ir.Netlist(cells=(fake, tb)), top="tb")
+        spectre.write(ir.Netlist(cells=(fake, tb)))
 
 
 def test_reserved_parameter_names_on_subcircuits():
@@ -224,7 +218,7 @@ def test_reserved_parameter_names_on_subcircuits():
         spectre.write(netlist)
 
 
-def test_parameters_of_the_top_cell_are_written():
+def deck_netlist() -> ir.Netlist:
     res = builtin("resistor")
     top = ir.Subckt(
         name="tb",
@@ -239,5 +233,74 @@ def test_parameters_of_the_top_cell_are_written():
             ),
         ),
     )
-    text = spectre.write(ir.Netlist(cells=(res, top)), top="tb", ground="gnd")
-    assert "// top: tb\nparameters w=2 x=2*w\nr0 (a 0) resistor r=x\n" in text
+    return ir.Netlist(cells=(res, top))
+
+
+def test_parameters_of_the_top_cell_are_written():
+    text = spectre.write(sim.Simulation(deck_netlist(), top="tb", ground="gnd"))
+    assert "simulator lang=spectre\n\nparameters w=2 x=2*w\n\n// top: tb\nr0 (a 0) resistor r=x\n" in text
+
+
+def test_params_override_the_defaults_in_place():
+    run = sim.Simulation(deck_netlist(), top="tb", ground="gnd", params={"w": 0.7})
+    assert "parameters w=700e-3 x=2*w\n" in spectre.write(run)
+
+
+def test_a_library_has_no_top_level():
+    text = spectre.write(deck_netlist())
+    assert "subckt tb (" in text and "parameters w=2 x=2*w\n    r0 (a gnd) resistor r=x\nends tb\n" in text
+
+
+def test_the_deck():
+    run = sim.Simulation(
+        deck_netlist(),
+        top="tb",
+        ground="gnd",
+        params={"w": 0.7},
+        includes=[sim.Include("models.scs", section="tt"), sim.Include("more models.scs")],
+        options=sim.Options("opts", temp=27, reltol=1e-4),
+        saves=["a", "r0:1"],
+        raw=["ic a=0", "statistics {\n    process {\n    }\n}"],
+        analyses=[
+            sim.Analysis("op", "dc"),
+            sim.Analysis("tr", "tran", stop=1e-9, errpreset="conservative"),
+            sim.Raw("// between the analyses"),
+            sim.Analysis(
+                "sw",
+                "sweep",
+                param="w",
+                values=[0.6, -0.8, ir.expr("w"), ir.expr("-w"), ir.expr("1 + w"), ir.expr("-(1 + w)")],
+                children=[sim.Analysis("tr", "tran", stop=1e-9), sim.Raw("// in the sweep")],
+            ),
+            sim.Analysis("mc", "montecarlo", numruns=100, variations="mismatch", children=[sim.Analysis("op", "dc")]),
+        ],
+    )
+    golden("deck.scs", spectre.write(run))
+
+
+def test_analysis_types_are_spectres():
+    run = sim.Simulation(deck_netlist(), top="tb", ground="gnd", analyses=[sim.Analysis("tr", "trann", stop=1)])
+    with pytest.raises(WriterError, match="'trann' is not a Spectre analysis"):
+        spectre.write(run)
+
+
+def test_only_some_analyses_have_children():
+    child = sim.Analysis("op", "dc")
+    run = sim.Simulation(deck_netlist(), top="tb", ground="gnd", analyses=[sim.Analysis("t", "tran", children=[child])])
+    with pytest.raises(WriterError, match="a tran has no child analyses"):
+        spectre.write(run)
+
+
+def test_a_child_is_checked_too():
+    child = sim.Analysis("save", "dc")
+    run = sim.Simulation(
+        deck_netlist(), top="tb", ground="gnd", analyses=[sim.Analysis("s", "sweep", children=[child])]
+    )
+    with pytest.raises(WriterError, match="'save' is a Spectre keyword"):
+        spectre.write(run)
+
+
+def test_options_name_is_checked():
+    run = sim.Simulation(deck_netlist(), top="tb", ground="gnd", options=sim.Options("save", temp=27))
+    with pytest.raises(WriterError, match="'save' is a Spectre keyword"):
+        spectre.write(run)

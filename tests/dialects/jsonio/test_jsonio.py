@@ -6,6 +6,7 @@ import random
 import pytest
 
 import spicule.ir as ir
+from spicule import sim
 from spicule.dialects import jsonio
 
 
@@ -172,3 +173,95 @@ def test_a_file_that_breaks_a_rule():
     written["cells"][0]["ports"][1]["range"]["msb"] = "1"
     with pytest.raises(ir.ValidationError, match="F-1"):
         jsonio.read(json.dumps(written))
+
+
+def simulation() -> sim.Simulation:
+    tb = ir.Subckt(
+        name="tb",
+        signals=(ir.Signal(name="gnd"),),
+        params=(ir.ParamDecl(name="vdd", default=num("1")), ir.ParamDecl(name="x", default=num("vdd"))),
+    )
+    return sim.Simulation(
+        ir.Netlist(cells=(tb,)),
+        top="tb",
+        ground="gnd",
+        params={"vdd": 0.7, "x": num("2*vdd")},
+        includes=[sim.Include("models.scs", section="tt"), sim.Include("other.scs")],
+        options=sim.Options("opts", temp=27, reltol=1e-4),
+        saves=["gnd", "dut.mid"],
+        raw=["ic gnd=0"],
+        analyses=[
+            sim.Analysis("op", "dc"),
+            sim.Raw("// here"),
+            sim.Analysis(
+                "sw",
+                "sweep",
+                param="vdd",
+                values=[0.6, 0.8, num("1 + 1"), "text"],
+                children=[sim.Analysis("tr", "tran", stop=1e-9, errpreset="conservative")],
+            ),
+        ],
+    )
+
+
+def test_a_simulation_round_trips():
+    run = simulation()
+    text = jsonio.write(run)
+    assert json.loads(text)["format"] == "spicule.sim/1"
+    assert jsonio.read(text) == run
+    assert jsonio.write(jsonio.read(text)) == text
+
+
+def test_a_simulation_without_the_optional_parts_round_trips():
+    run = sim.Simulation(simulation().netlist, top="tb", ground="gnd")
+    assert jsonio.read(jsonio.write(run)) == run
+
+
+def test_a_simulation_file_says_what_is_what():
+    data = json.loads(jsonio.write(simulation()))
+    assert list(data) == [
+        "format", "netlist", "top", "ground", "params", "includes", "options", "saves", "raw", "analyses"
+    ]  # fmt: skip
+    assert data["params"][0] == {"name": "vdd", "value": {"kind": "expression", "text": "700e-3"}}
+    assert data["includes"][1] == {"path": "other.scs", "section": None}
+    assert data["analyses"][1] == {"kind": "raw", "text": "// here"}
+    sweep = data["analyses"][2]
+    assert (sweep["kind"], sweep["name"], sweep["type"]) == ("analysis", "sw", "sweep")
+    assert sweep["params"][1]["value"]["kind"] == "list"
+    assert sweep["children"][0]["params"][1] == {"name": "errpreset", "value": {"kind": "text", "text": "conservative"}}
+
+
+def test_only_a_valid_simulation_is_written():
+    bad = sim.Simulation(simulation().netlist, top="nope", ground="gnd")
+    with pytest.raises(sim.SimulationError, match="top 'nope'"):
+        jsonio.write(bad)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda d: d.update(format="spicule.sim/2"), "format is 'spicule.sim/2'"),
+        (lambda d: d.pop("top"), "missing field 'top'"),
+        (lambda d: d.update(extra=1), "unknown field 'extra'"),
+        (lambda d: d["analyses"][0].update(kind="other"), "analyses\\[0\\]: unknown statement kind 'other'"),
+        (lambda d: d["analyses"].__setitem__(0, 3), "analyses\\[0\\]: expected an object"),
+        (lambda d: d["saves"].__setitem__(0, 3), "saves\\[0\\]: expected text"),
+        (lambda d: d["params"].append(dict(d["params"][0])), "'vdd' is there more than once"),
+        (
+            lambda d: d["analyses"][2]["params"].append({"name": "children", "value": {"kind": "text", "text": "x"}}),
+            "'children' can't be a parameter name",
+        ),
+    ],
+)
+def test_what_isnt_a_simulation_file(change, message):
+    data = json.loads(jsonio.write(simulation()))
+    change(data)
+    with pytest.raises(jsonio.FormatError, match=message):
+        jsonio.read(json.dumps(data))
+
+
+def test_a_file_with_a_broken_rule_is_refused():
+    data = json.loads(jsonio.write(simulation()))
+    data["ground"] = "nope"
+    with pytest.raises(sim.SimulationError, match="ground 'nope'"):
+        jsonio.read(json.dumps(data))

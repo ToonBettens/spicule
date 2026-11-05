@@ -8,6 +8,7 @@ import pytest
 
 import spicule.hdl as h
 import spicule.ir as ir
+from spicule import sim
 from spicule.dialects import cdl, jsonio, spectre
 from spicule.hdl.builtins import spectre as sp
 
@@ -82,7 +83,7 @@ class Tb(h.Subckt):
 
 
 def test_spectre_testbench():
-    golden("tb.scs", spectre.write(h.elaborate(Tb), top="Tb", ground="gnd"))
+    golden("tb.scs", spectre.write(sim.Simulation(h.elaborate(Tb), top="Tb", ground="gnd")))
 
 
 def test_cdl_library():

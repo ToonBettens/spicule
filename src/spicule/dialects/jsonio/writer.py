@@ -6,16 +6,66 @@ A `kind` says which one it is wherever a value can be one of several. Expression
 import json
 from typing import Any
 
-from spicule.dialects.jsonio.syntax import FORMAT
+from spicule.dialects.jsonio.syntax import NETLIST_FORMAT, SIMULATION_FORMAT
 from spicule.ir import Cell, External, Instance, Meta, Netlist, NoConnect, Piece, Range, Signal, Value, validate
 from spicule.ir.expressions import format_expression
+from spicule.sim import Analysis, Param, Raw, Simulation, SimValue
+from spicule.sim import validate as validate_simulation
 
 
-def write(netlist: Netlist) -> str:
-    """`netlist` as JSON text. Only a valid netlist can be written."""
-    validate(netlist)
-    data = {"format": FORMAT, "cells": [_cell_data(cell) for cell in netlist.cells]}
+def write(design: Netlist | Simulation) -> str:
+    """`design` as JSON text. Only a valid netlist or simulation can be written."""
+    if isinstance(design, Simulation):
+        validate_simulation(design)
+        return _text(_simulation_data(design))
+    validate(design)
+    return _text({"format": NETLIST_FORMAT, "cells": _cells_data(design)})
+
+
+def _text(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2) + "\n"
+
+
+def _simulation_data(simulation: Simulation) -> dict[str, Any]:
+    options = simulation.options
+    return {
+        "format": SIMULATION_FORMAT,
+        "netlist": {"cells": _cells_data(simulation.netlist)},
+        "top": simulation.top,
+        "ground": simulation.ground,
+        "params": [{"name": param.name, "value": _value_data(param.value)} for param in simulation.params],
+        "includes": [{"path": include.path, "section": include.section} for include in simulation.includes],
+        "options": None if options is None else {"name": options.name, "params": _params_data(options.params)},
+        "saves": list(simulation.saves),
+        "raw": list(simulation.raw),
+        "analyses": [_statement_data(item) for item in simulation.analyses],
+    }
+
+
+def _statement_data(item: Analysis | Raw) -> dict[str, Any]:
+    if isinstance(item, Raw):
+        return {"kind": "raw", "text": item.text}
+    return {
+        "kind": "analysis",
+        "name": item.name,
+        "type": item.type,
+        "params": _params_data(item.params),
+        "children": [_statement_data(child) for child in item.children],
+    }
+
+
+def _params_data(params: tuple[Param, ...]) -> list[dict[str, Any]]:
+    return [{"name": param.name, "value": _sim_value_data(param.value)} for param in params]
+
+
+def _sim_value_data(value: SimValue) -> dict[str, Any]:
+    if isinstance(value, tuple):
+        return {"kind": "list", "items": [_value_data(item) for item in value]}
+    return _value_data(value)
+
+
+def _cells_data(netlist: Netlist) -> list[dict[str, Any]]:
+    return [_cell_data(cell) for cell in netlist.cells]
 
 
 def _cell_data(cell: Cell) -> dict[str, Any]:

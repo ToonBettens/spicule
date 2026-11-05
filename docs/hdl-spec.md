@@ -13,8 +13,7 @@ import spicule.hdl as h
 The HDL describes cells, their nets and parameters, and how they connect. It
 adds what the IR leaves to the producer: Python as the language around the
 circuit, generators, and errors that point at Python lines. Analyses, includes
-and options are not in the HDL. They belong to a simulation setup, which doesn't
-exist yet.
+and options are not in the HDL. They belong to a simulation (`sim-spec.md`).
 
 ## 1. Conventions
 
@@ -338,14 +337,17 @@ file's project: the nearest directory with a `pyproject.toml`, or else the
 directory above its top-level package. A generated cell's origin is the `class`
 line inside the generator.
 
-Nothing about the netlist's dialect is chosen here. Writers take the netlist:
+Nothing about the netlist's dialect is chosen here. Writers take the netlist,
+which they write as a library of subcircuits. A testbench to run is a simulation
+of the netlist (`sim-spec.md`):
 
 ```python
 netlist = h.elaborate(tb)
-text = spectre.write(netlist, top="tb", ground="gnd")
+library = spectre.write(netlist)
+deck = spectre.write(sim.Simulation(netlist, top="tb", ground="gnd"))
 ```
 
-**Ground** is an ordinary net in the HDL. The writer's `ground=` names it
+**Ground** is an ordinary net in the HDL. The simulation's `ground=` names it
 (R-12).
 
 ## 10. Errors and warnings

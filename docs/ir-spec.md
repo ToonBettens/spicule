@@ -295,6 +295,8 @@ version, then the cells. Below it, the file follows the model field for field:
 An expression is its text as `format_expression` writes it. Numbers are therefore
 exact, and `parse_expression` gives back the same tree.
 
+A simulation has a file of its own, with a netlist in it (`sim-spec.md`, section 6).
+
 ```json
 {
   "name": "mn",

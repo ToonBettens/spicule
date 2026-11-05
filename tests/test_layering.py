@@ -7,9 +7,10 @@ PACKAGE = Path(__file__).parents[1] / "src" / "spicule"
 
 # For each layer, the spicule modules it must not import.
 FORBIDDEN = {
-    "spicule.ir": ("spicule.hdl", "spicule.dialects"),
+    "spicule.ir": ("spicule.hdl", "spicule.dialects", "spicule.sim"),
+    "spicule.sim": ("spicule.hdl", "spicule.dialects"),
     "spicule.dialects": ("spicule.hdl",),
-    "spicule.hdl": ("spicule.dialects",),
+    "spicule.hdl": ("spicule.dialects", "spicule.sim"),
 }
 
 

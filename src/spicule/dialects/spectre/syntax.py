@@ -30,3 +30,16 @@ MULTIPLICITY = "m"
 #: The built-in elements the writer knows, by Spectre's own names. The HDL declares them (`spicule.hdl.builtins`), and
 #: a netlist carries them as `External` cells with `element=builtin`.
 BUILTINS = frozenset(["resistor", "capacitor", "inductor", "vsource", "isource", "vcvs", "vccs", "ccvs", "cccs"])
+
+#: The statements written as `name type parameters`: what `spectre -h` lists as analyses and controls, without `options`
+#: (a field of its own in a simulation) and `altergroup` (a block with a circuit in it, so raw).
+ANALYSES = frozenset([
+    "ac", "acmatch", "alter", "check", "checklimit", "cosim", "customerrpreset", "dc", "dcmatch", "devchrz",
+    "dspf_options", "envlp", "hb", "hbac", "hbnoise", "hbsp", "hbstb", "hbxf", "info", "lf", "loadpull",
+    "montecarlo", "noise", "optimize", "pac", "pnoise", "psp", "pss", "pstb", "pxf", "pz", "qpac", "qpnoise",
+    "qpsp", "qpss", "qpxf", "reliability", "set", "shell", "sp", "stb", "stress", "sweep", "tdr", "thermal",
+    "tran", "uti", "xf",
+])  # fmt: skip
+
+#: The analyses that repeat other analyses, written as a `{ }` block around them.
+ANALYSES_WITH_CHILDREN = frozenset(["montecarlo", "sweep"])

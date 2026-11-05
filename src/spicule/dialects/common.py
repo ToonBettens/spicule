@@ -1,46 +1,11 @@
-"""Helpers shared by the writers: errors, which cells to write, and net names per cell."""
+"""Helpers shared by the writers: errors, and net names per cell."""
 
-from spicule.ir import Cell, Instance, Netlist, Subckt
+from spicule.ir import Cell, Instance, Subckt
 from spicule.ir.connections import OPEN, NetBit, bits, nets, signal_bits
 
 
 class WriterError(ValueError):
     """A valid netlist that this dialect can't express (a keyword as a name, an unknown built-in, ...)."""
-
-
-def cells_to_write(netlist: Netlist, top: str | None) -> tuple[list[Subckt], Subckt | None]:
-    """
-    The subcircuits to define, leaves first, and the top cell. Without `top`: every `Subckt`, no top. With `top`:
-    the `Subckt`s below it, and the top cell itself, whose contents go at the top level.
-    """
-    if top is None:
-        return [cell for cell in netlist.cells if isinstance(cell, Subckt)], None
-    by_name: dict[str, Cell] = {cell.name: cell for cell in netlist.cells}
-    top_cell = by_name.get(top)
-    if not isinstance(top_cell, Subckt):
-        raise WriterError(f"top {top!r} is not a subcircuit of the netlist")
-    needed: set[str] = set()
-    pending = [top_cell]
-    while pending:
-        for inst in pending.pop().instances:
-            target = by_name[inst.cell]
-            if target.name not in needed:
-                needed.add(target.name)
-                if isinstance(target, Subckt):
-                    pending.append(target)
-    defined = [c for c in netlist.cells if isinstance(c, Subckt) and c.name in needed and c.name != top]
-    return defined, top_cell
-
-
-def check_ground(top_cell: Subckt | None, ground: str | None) -> None:
-    """Check the shared writer argument `ground`: a scalar net of the top cell, so it needs a top."""
-    if ground is None:
-        return
-    if top_cell is None:
-        raise WriterError("ground needs a top cell")
-    net = nets(top_cell).get(ground)
-    if net is None or net.range is not None:
-        raise WriterError(f"ground {ground!r} is not a scalar net of {top_cell.name!r}")
 
 
 class NetNames:
