@@ -73,8 +73,9 @@ m = h.new_subckt("inv_x4")
 m.a = h.Port()
 ```
 
-The same rules apply to assigned attributes. Attributes can also be added to a
-class-defined subckt. Attribute access on `new_subckt` cells is unknown to type
+The same rules apply to assigned attributes. `m["a"]` is the same as `m.a`, for
+setting and for reading, and `m[f"x{i}"]` takes any name Python computes.
+Attributes can also be added to a class-defined subckt. Attribute access on `new_subckt` cells is unknown to type
 checkers, so nets are best kept in local variables. Changing a subckt after
 `elaborate` doesn't touch a netlist already made.
 
@@ -140,9 +141,8 @@ and `d, q = h.Signals(2, width=4)` give several new nets of one shape.
 
 ### 5.1 Indexing
 
-A bus has real bit names, and indexing uses them, as in Cadence and Verilog. It
-is inclusive on both ends and in the order written. **It is not a Python list
-slice.**
+A bus has real bit names, and indexing uses them, as in Verilog. It is inclusive
+on both ends and in the order written. **It is not a Python list slice.**
 
 ```python
 d = h.Port(msb=7, lsb=4)
@@ -249,9 +249,9 @@ Shortcuts:
 
 ### 7.2 Partial calls
 
-An `h.CellCall` is a template. It can be called any number of times, and each
-call makes a new instance. Two methods give a new template with more filled in,
-so a template never changes:
+An `h.CellCall` is a partial, in the sense of `functools.partial`. It can be
+called any number of times, and each call makes a new instance. Two methods give
+a new partial with more filled in, so a partial never changes:
 
 ```python
 _n = nch(l=16e-9).preset(b=vss)
@@ -261,7 +261,7 @@ m1 = _n.params(l=20e-9, nfin=4)(d=a, g=y, s=vss)
 
 `.params` overrides a value that was already set, because a preset value is a
 default. `.preset` connects ports for good: connecting one again is refused,
-since wiring a port twice is almost always a mistake. In a class body a template
+since wiring a port twice is almost always a mistake. In a class body a partial
 needs a `_` name.
 
 | Refused | |
@@ -288,7 +288,7 @@ def invbank(*, n: int = 4) -> type[h.Subckt]:
         nfin = h.Param(4)
 
     for bit in range(n):
-        setattr(bank, f"x{bit}", inv(nfin=bank.nfin)(bank.d[bit], bank.q[bit], bank.vdd, bank.vss))
+        bank[f"x{bit}"] = inv(nfin=bank.nfin)(bank.d[bit], bank.q[bit], bank.vdd, bank.vss)
     return bank
 
 

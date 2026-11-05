@@ -1,6 +1,6 @@
 """What Spectre is, as far as spicule needs it."""
 
-#: Bus bits as Virtuoso writes them: `d\<3\>`.
+#: Bus bits, with the brackets escaped: `d\<3\>`.
 BUS_FORMAT = r"{name}\<{index}\>"
 
 #: Netlist keywords: not allowed as subcircuit or instance names.

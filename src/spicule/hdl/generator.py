@@ -11,7 +11,7 @@ value, and each gets its own cell, named by the format on the decorator. The for
             nfin = h.Param(4)
 
         for bit in range(n):
-            setattr(bank, f"x{bit}", inv(nfin=bank.nfin)(bank.d[bit], bank.q[bit], bank.vdd, bank.vss))
+            bank[f"x{bit}"] = inv(nfin=bank.nfin)(bank.d[bit], bank.q[bit], bank.vdd, bank.vss)
         return bank
 
 

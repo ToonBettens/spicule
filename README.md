@@ -25,6 +25,7 @@ class tb(h.Subckt):
     vs = sp.vsource(type="dc", dc=0.8)(vdd, gnd)
     cl = sp.capacitor(c=1e-15)(y, gnd)
 
+
 lvs = cdl.write(h.elaborate(inv))
 
 run = sim.Simulation(

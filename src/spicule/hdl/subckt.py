@@ -49,7 +49,7 @@ class CellInfo:
 class CellCall:
     """
     A cell with parameter values, made by calling a cell. Calling it with connections gives an `Instance`, and it can
-    be called any number of times. `params` and `preset` give a new `CellCall` with more filled in, so a template
+    be called any number of times. `params` and `preset` give a new `CellCall` with more filled in, so a partial
     shared between instances never changes::
 
         _p = pch(l=16e-9).preset(b=vdd)
@@ -263,6 +263,14 @@ class SubcktMeta(type):
         value.__set_name__(cls, name)
         type.__setattr__(cls, name, value)
 
+    def __getitem__(cls, name: str) -> Any:
+        """`cell[name]`, the same as `getattr(cell, name)`."""
+        return getattr(cls, _attribute_name(cls, name))
+
+    def __setitem__(cls, name: str, value: Any) -> None:
+        """`cell[name] = value`, the same as `setattr(cell, name, value)`."""
+        setattr(cls, _attribute_name(cls, name), value)
+
     def __delattr__(cls, name: str) -> None:
         raise HdlError(f"attributes can't be removed from subckt {cls.__name__}", caller())
 
@@ -274,6 +282,13 @@ class SubcktMeta(type):
     def __repr__(cls) -> str:
         info = cls.__dict__.get("__hdl__")
         return f"<{info}>" if info else super().__repr__()
+
+
+def _attribute_name(cell: type, name: object) -> str:
+    # Also what `for x in cell` and `x in cell` end up at, since Python tries `cell[0]` for those.
+    if not isinstance(name, str):
+        raise HdlError(f"subckt {cell.__name__} is indexed by attribute name, got {name!r}", caller())
+    return name
 
 
 class Subckt(metaclass=SubcktMeta):

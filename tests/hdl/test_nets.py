@@ -24,7 +24,7 @@ def test_bad_shapes(kwargs):
         h.Port(**kwargs)
 
 
-def test_cadence_indexing():
+def test_indexing_uses_bit_names():
     d = h.Port(msb=7, lsb=4)
     assert d[5].range == ir.Range(msb=5, lsb=5)
     assert (d[7:6].range, d[7:6].width) == (ir.Range(msb=7, lsb=6), 2)

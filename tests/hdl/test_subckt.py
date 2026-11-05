@@ -1,5 +1,7 @@
 """Subckts, external cells, two-call instances and connections."""
 
+from typing import Any
+
 import pytest
 
 import spicule.hdl as h
@@ -253,7 +255,7 @@ def test_partial_calls():
     a, b, vss = h.Signals(3)
     base = NCH(l=16e-9)
     derived = base.params(nfin=4, l=20e-9).preset(b=vss)
-    assert set(base.values) == {"l"} and not base.presets  # a template never changes
+    assert set(base.values) == {"l"} and not base.presets  # a partial never changes
     assert set(derived.values) == {"l", "nfin"}
     first, second = derived(d=a, g=b, s=vss), derived(d=b, g=a, s=vss)
     assert first is not second
@@ -283,3 +285,25 @@ def test_partial_calls_in_a_subckt():
         (ir.ParamValue(name="l", value=ir.number("16e-9")),),
         (ir.ParamValue(name="l", value=ir.number("20e-9")),),
     ]
+
+
+def test_item_assignment_is_attribute_assignment():
+    cell = h.new_subckt("c")
+    a = h.Signal()
+    cell.a = a
+    cell[f"r{0}"] = spectre.resistor(r=1e3)(a, a)
+    setattr(cell, "r1", spectre.resistor(r=1e3)(a, a))  # noqa: B010
+    assert list(h.info(cell).instances) == ["r0", "r1"]
+    assert cell["r0"] is h.info(cell).instances["r0"]
+    assert cell["a"] is a
+    with pytest.raises(AttributeError):
+        cell["nope"]
+    untyped: Any = cell
+    for use in (lambda: untyped[0], lambda: list(untyped), lambda: "r0" in untyped):
+        with pytest.raises(h.HdlError, match="indexed by attribute name"):
+            use()
+    with pytest.raises(h.HdlError, match="already has an attribute 'r0'") as error:
+        cell["r0"] = spectre.resistor(r=1e3)(a, a)
+    assert error.value.sources[0].file.endswith("test_subckt.py")  # The line that assigned it, not the metaclass.
+    with pytest.raises(h.HdlError, match="not a Port, Signal, Instance or Param"):
+        cell["x"] = 2

@@ -203,7 +203,7 @@ The list follows one rule: one value per kind of netlist line, so `subckt` (X),
 letters (`jfet` J, switches S/W, lossy lines O) can be added as new members
 without breaking anything.
 
-One declaration serves Spectre and CDL. Real lines from a Virtuoso netlist:
+One declaration serves Spectre and CDL. Real lines from generated netlists:
 
 ```
 CDL:      MM0 BIT BITb VDD VDD pch l=20.0n nfin=2 nf=1
@@ -233,7 +233,7 @@ refused because CDL has no spelling for it.
 
 | Alternative | C1 | C2 | C3 | C4 | C5 | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| a. `Range(msb, lsb)`, Cadence-style, either direction | + | + | 0 | ++ | + | Keeps index offset and pin order (`d<3:0>` vs `d<0:3>`) |
+| a. `Range(msb, lsb)`, either direction | + | + | 0 | ++ | + | Keeps index offset and pin order (`d<3:0>` vs `d<0:3>`) |
 | b. Width only (vlsir) | + | + | + | - | - | Loses offset and order: vlsir's open ordering FIXME |
 | c. No buses, net names like `d<3>` | - | 0 | + | - | - | Every tool reparses names (the SPICE limitation) |
 
@@ -246,8 +246,7 @@ refused because CDL has no spelling for it.
 | a. No: a name is one net, port or internal, scalar or bus | + | + | + | 0 | + | Split halves get different names (`d`, `d_hi`) |
 | b. Yes, per bit (Virtuoso allows pin `d<3:0>` plus wire `d<7:4>`) | - | - | -- | + | - | Uniqueness and range rules per bit instead of per name |
 
-**Choice: a.** A future netlist reader meeting a split Virtuoso bus renames one
-half.
+**Choice: a.** A future netlist reader meeting a split bus renames one half.
 
 ### R-9 Connections
 
