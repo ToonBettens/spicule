@@ -3,6 +3,8 @@ name = "spicule"
 version = "0.1.0"
 description = "Analog circuit HDL in Python"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "ToonBettens", email = "toon.bettens@outlook.com" }
 ]
