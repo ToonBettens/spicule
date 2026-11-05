@@ -8,7 +8,7 @@ import pytest
 
 import spicule.hdl as h
 import spicule.ir as ir
-from spicule.dialects import cdl, spectre
+from spicule.dialects import cdl, jsonio, spectre
 from spicule.hdl.builtins import spectre as sp
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -91,8 +91,8 @@ def test_cdl_library():
 
 def test_the_ir():
     netlist = h.elaborate(bank, Tb)
-    golden("design.json", json.dumps(without_origins(json.loads(ir.to_json(netlist))), indent=2) + "\n")
-    assert ir.from_json((GOLDEN / "design.json").read_text()) == netlist
+    golden("design.json", json.dumps(without_origins(json.loads(jsonio.write(netlist))), indent=2) + "\n")
+    assert jsonio.read((GOLDEN / "design.json").read_text()) == netlist
 
 
 def test_cells_leaves_first_each_once():

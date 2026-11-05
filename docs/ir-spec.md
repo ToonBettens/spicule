@@ -272,9 +272,10 @@ New annotations are added as new optional fields of `Meta`.
 
 ## 10. The netlist file
 
-`to_json(netlist)` gives a valid netlist as JSON text, and `from_json(text)` reads
-it back: a valid netlist, equal to the one written, with its `meta` intact. The
-file is for looking at the IR, comparing designs and keeping them.
+`spicule.dialects.jsonio` writes a valid netlist as JSON text with `write(netlist)`,
+and `read(text)` reads it back: a valid netlist, equal to the one written, with its
+`meta` intact. The file is for looking at the IR, comparing designs and keeping
+them.
 
 The top level is `{"format": "spicule.ir/1", "cells": [...]}`: the format and its
 version, then the cells. Below it, the file follows the model field for field:
